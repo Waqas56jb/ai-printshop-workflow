@@ -1,4 +1,4 @@
-import { workerBaseUrl } from '../../utils/boardUrl.js';
+import { workerBaseUrl, workerBoardUrl } from '../../utils/boardUrl.js';
 
 const COLUMNS = [
   { name: 'Quote', color: '#8A93A1', n: 2 },
@@ -9,19 +9,17 @@ const COLUMNS = [
   { name: 'Ready', color: '#1F9D55', n: 1 },
 ];
 
-function boardLink(key) {
-  const base = workerBaseUrl();
-  return `${base}/?key=${key || ''}`;
-}
-
 function maskedKey(key = '') {
   if (key.length <= 6) return key;
   return `${key.slice(0, 4)}…`;
 }
 
 export function BoardSection({ form, setField }) {
-  const url = boardLink(form.board_key);
-  const shown = `${workerBaseUrl()}/?key=${maskedKey(form.board_key)}`;
+  const isPublic = form.board_public !== false;
+  const url = isPublic ? workerBoardUrl() : workerBoardUrl({ key: form.board_key });
+  const shown = isPublic
+    ? workerBaseUrl()
+    : `${workerBaseUrl()}/?key=${maskedKey(form.board_key)}`;
 
   return (
     <div className="panel" id="board">
@@ -38,6 +36,16 @@ export function BoardSection({ form, setField }) {
             ))}
           </div>
         ))}
+      </div>
+      <div className="setting">
+        <div className="t">
+          <b>Board is public (no link key needed)</b>
+          <span>TV can open the plain worker URL. Turn off to require the secret link.</span>
+        </div>
+        <span
+          className={`toggle ${isPublic ? 'on' : ''}`}
+          onClick={() => setField('board_public', !isPublic)}
+        ></span>
       </div>
       <div className="setting">
         <div className="t">

@@ -31,6 +31,7 @@ router.patch(
         voice_language: z.string().optional(),
         voice_allow_skip: z.boolean().optional(),
         board_refresh_seconds: z.number().int().positive().optional(),
+        board_public: z.boolean().optional(),
         business_name: z.string().optional(),
         business_logo_url: z.string().nullable().optional(),
         phone: z.string().optional(),

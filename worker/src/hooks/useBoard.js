@@ -11,7 +11,6 @@ export function useBoard(key, { label = '', preview = false } = {}) {
   const timer = useRef(null);
 
   const fetchBoard = useCallback(async () => {
-    if (!key) return;
     try {
       const payload = await getBoard(key);
       if (!payload) return;
@@ -50,12 +49,12 @@ export function useBoard(key, { label = '', preview = false } = {}) {
   const seconds = data?.settings?.refresh_seconds || 30;
 
   useEffect(() => {
-    if (!key || invalid) return undefined;
+    if (invalid) return undefined;
     const id = setInterval(fetchBoard, seconds * 1000);
     return () => clearInterval(id);
-  }, [key, invalid, seconds, fetchBoard]);
+  }, [invalid, seconds, fetchBoard]);
 
-  useBoardSocket(data && !invalid ? key : '', requestFetch, { label, preview });
+  useBoardSocket(Boolean(data) && !invalid, requestFetch, { key, label, preview });
 
   return { data, offline, invalid, updatedAt, refetch: fetchBoard };
 }

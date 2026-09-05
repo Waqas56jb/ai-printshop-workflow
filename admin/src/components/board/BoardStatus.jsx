@@ -45,7 +45,12 @@ export function BoardStatus({ stats, settings, onPatch }) {
       <button
         type="button"
         className="btn btn-primary"
-        onClick={() => window.open(workerBoardUrl({ key: settings.board_key }), '_blank')}
+        onClick={() =>
+          window.open(
+            workerBoardUrl({ key: settings.board_public === false ? settings.board_key : '' }),
+            '_blank'
+          )
+        }
       >
         <svg viewBox="0 0 24 24">
           <path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />

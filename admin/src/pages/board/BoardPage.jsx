@@ -114,10 +114,18 @@ export default function BoardPage() {
     <main className="board-page content">
       <div className="stage">
         <BoardStatus stats={status} settings={settings} onPatch={patchSettings} />
-        <BoardPreview boardKey={settings.board_key} reloadKey={reloadKey} />
+        <BoardPreview
+          boardKey={settings.board_key}
+          boardPublic={settings.board_public !== false}
+          reloadKey={reloadKey}
+        />
       </div>
       <aside className="side">
-        <BoardLink boardKey={settings.board_key} />
+        <BoardLink
+          boardKey={settings.board_key}
+          boardPublic={settings.board_public !== false}
+          onPatch={patchSettings}
+        />
         <BoardDisplaySettings settings={settings} onPatch={patchSettings} />
         <BoardColumns stages={stages} counts={counts} onToggle={toggleColumn} />
         <ConnectedScreens screens={screens} />

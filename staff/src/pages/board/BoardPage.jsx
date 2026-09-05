@@ -6,6 +6,7 @@ import { workerBoardUrl } from '../../utils/boardUrl.js';
 
 export default function BoardPage() {
   const [key, setKey] = useState('');
+  const [publicBoard, setPublicBoard] = useState(true);
   const [live, setLive] = useState(false);
   const [error, setError] = useState('');
 
@@ -13,6 +14,7 @@ export default function BoardPage() {
     try {
       const [board, stats] = await Promise.all([getBoardKey(), getBoardStats().catch(() => null)]);
       setKey(board?.key || '');
+      setPublicBoard(board?.board_public !== false);
       setLive(Boolean(stats?.live));
       setError('');
     } catch (err) {
@@ -32,7 +34,11 @@ export default function BoardPage() {
   }, []);
   useSocket(onSocket);
 
-  const src = key ? workerBoardUrl({ key, preview: true, label: 'Staff panel' }) : '';
+  const src = publicBoard
+    ? workerBoardUrl({ preview: true, label: 'Staff panel' })
+    : key
+      ? workerBoardUrl({ key, preview: true, label: 'Staff panel' })
+      : '';
 
   return (
     <main className="staff-board">

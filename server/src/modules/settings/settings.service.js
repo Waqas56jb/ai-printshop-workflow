@@ -23,6 +23,7 @@ export const SETTING_DEFAULTS = {
   board_overdue_highlight: true,
   board_hide_delivered_after: 2,
   board_refresh_seconds: 30,
+  board_public: true,
   job_number_prefix: 'J-',
   default_due_days: 3,
   default_priority: 'normal',
@@ -71,6 +72,11 @@ export async function getSettings() {
 export async function getSetting(key, fallback = null) {
   const settings = await getRawSettings();
   return settings[key] ?? SETTING_DEFAULTS[key] ?? fallback;
+}
+
+export function isBoardPublic(value) {
+  if (value === undefined || value === null) return true;
+  return value !== false && value !== 'false' && value !== 0;
 }
 
 export async function updateSettings(patch) {

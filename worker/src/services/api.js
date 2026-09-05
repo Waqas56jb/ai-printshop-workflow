@@ -5,12 +5,13 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
-export async function getBoard(key) {
-  if (!key) return null;
+export async function getBoard(key = '') {
   const preview = new URLSearchParams(window.location.search).get('preview');
-  const { data } = await api.get('/api/board', {
-    params: { key, ...(preview === '1' ? { preview: '1' } : {}) },
-  });
+  const params = {
+    ...(key ? { key } : {}),
+    ...(preview === '1' ? { preview: '1' } : {}),
+  };
+  const { data } = await api.get('/api/board', { params });
   return data.data;
 }
 

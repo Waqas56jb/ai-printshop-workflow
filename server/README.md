@@ -23,7 +23,7 @@ Server listens on `PORT` (default 5000). Health check: `GET /health`.
 
 Frontend signs in with Supabase Auth and sends `Authorization: Bearer <access_token>`. The server verifies the JWT and loads `profiles.role` (`admin` | `staff` | `worker`).
 
-Public (no JWT): `GET /api/board`, `POST /api/omi/webhook`, `GET /api/omi/setup-status`.
+Public (no JWT): `GET /api/board` (when `board_public=true`, or with `?key=`), `POST /api/omi/webhook`, `GET /api/omi/setup-status`.
 
 ## Sockets
 
@@ -115,7 +115,7 @@ All JSON responses: `{ success, data, message }` unless noted.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/board` | none | Stages with grouped active jobs (`job_number`, customer name, title, quantity, due_date, priority, is_overdue, days_left) |
+| GET | `/api/board` | none if `board_public=true`, else `?key=` or admin/staff JWT | TV payload (name, job number, title, qty, due, stage, initials). Rate-limited 120/min per IP. No prices, notes, emails, or phones. |
 
 ### Dashboard
 
@@ -145,4 +145,4 @@ All JSON responses: `{ success, data, message }` unless noted.
 | Method | Path | Auth | Body | Description |
 |--------|------|------|------|-------------|
 | GET | `/api/settings` | admin | | Flat key/value object |
-| PATCH | `/api/settings` | admin | `{ voice_auto_execute?, voice_trigger_word?, board_refresh_seconds?, business_name? }` | Upsert keys |
+| PATCH | `/api/settings` | admin | `{ board_public?, voice_auto_execute?, voice_trigger_word?, board_refresh_seconds?, business_name? }` | Upsert keys. `board_public` (default true) lets the TV open without a key. |

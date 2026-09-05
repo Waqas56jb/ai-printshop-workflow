@@ -8,8 +8,8 @@ function maskedUrl(key = '') {
   return url.replace(key, `${key.slice(0, 6)}…`);
 }
 
-export function BoardLink({ boardKey }) {
-  const url = workerBoardUrl({ key: boardKey });
+export function BoardLink({ boardKey, boardPublic = true, onPatch }) {
+  const url = boardPublic ? workerBoardUrl() : workerBoardUrl({ key: boardKey });
 
   async function copy() {
     try {
@@ -25,9 +25,21 @@ export function BoardLink({ boardKey }) {
       <div className="panel-head">
         <h3>Put it on a TV</h3>
       </div>
+      {onPatch ? (
+        <div className="setting">
+          <div className="t">
+            <b>Board is public (no link key needed)</b>
+            <span>TV can open the plain worker URL. Turn off to require the secret link.</span>
+          </div>
+          <span
+            className={`toggle${boardPublic ? ' on' : ''}`}
+            onClick={() => onPatch({ board_public: !boardPublic })}
+          ></span>
+        </div>
+      ) : null}
       <div className="link">
         <div className="url">
-          <span>{maskedUrl(boardKey)}</span>
+          <span>{boardPublic ? url : maskedUrl(boardKey)}</span>
           <button type="button" onClick={copy}>
             Copy
           </button>

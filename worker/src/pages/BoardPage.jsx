@@ -27,7 +27,7 @@ export function BoardPage({ boardKey, preview = false, label = '' }) {
   const now = useClock();
   const prevJobs = useRef(new Map());
   const { data, offline, invalid, updatedAt } = useBoard(boardKey, { preview, label });
-  const boardReady = Boolean(boardKey) && !invalid && Boolean(data || offline);
+  const boardReady = !invalid && Boolean(data || offline);
 
   useEffect(() => {
     const theme = data?.settings?.theme || 'dark';
@@ -89,7 +89,7 @@ export function BoardPage({ boardKey, preview = false, label = '' }) {
     return () => clearTimeout(id);
   }, [preview, boardReady]);
 
-  if (!boardKey || invalid) {
+  if (invalid) {
     return <NoKeyScreen />;
   }
 

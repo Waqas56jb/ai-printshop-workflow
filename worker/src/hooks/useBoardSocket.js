@@ -4,14 +4,18 @@ import { API_URL } from '../config.js';
 
 const EVENTS = ['board:refresh', 'job:created', 'job:updated', 'job:moved', 'job:deleted', 'voice:command'];
 
-export function useBoardSocket(key, onRefresh, { label = '', preview = false } = {}) {
+export function useBoardSocket(enabled, onRefresh, { key = '', label = '', preview = false } = {}) {
   useEffect(() => {
-    if (!key || !onRefresh) return undefined;
+    if (!enabled || !onRefresh) return undefined;
 
-    const socket = io(API_URL, {
-      auth: { key, label, preview },
-      query: { key, label, preview: preview ? '1' : '' },
-    });
+    const auth = { label, preview };
+    const query = { label, preview: preview ? '1' : '' };
+    if (key) {
+      auth.key = key;
+      query.key = key;
+    }
+
+    const socket = io(API_URL, { auth, query });
 
     socket.on('connect', () => {
       socket.emit('join', 'board');
@@ -25,5 +29,5 @@ export function useBoardSocket(key, onRefresh, { label = '', preview = false } =
     return () => {
       socket.disconnect();
     };
-  }, [key, onRefresh, label, preview]);
+  }, [enabled, key, onRefresh, label, preview]);
 }

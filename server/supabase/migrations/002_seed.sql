@@ -17,6 +17,7 @@ values
   ('voice_auto_execute', 'true'::jsonb),
   ('voice_trigger_word', '""'::jsonb),
   ('board_refresh_seconds', '30'::jsonb),
+  ('board_public', 'true'::jsonb),
   ('business_name', '"Print Shop"'::jsonb)
 on conflict (key) do nothing;
 

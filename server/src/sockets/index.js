@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { env } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
+import { isBoardPublic } from '../modules/settings/settings.service.js';
 import { trackBoardJoin, trackBoardLeave } from './boardScreens.js';
 
 let io;
@@ -42,10 +43,14 @@ export function initSockets(httpServer) {
     socket.data.user = await resolveSocketUser(token);
     socket.data.boardLabel = typeof label === 'string' && label.trim() ? label.trim() : '';
     socket.data.preview = preview === true || preview === '1' || preview === 'true';
-    if (boardKey) {
-      const { data } = await supabase.from('settings').select('value').eq('key', 'board_key').maybeSingle();
-      socket.data.boardAccess = Boolean(data?.value) && String(data.value) === String(boardKey);
-    }
+    const { data: settingRows } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['board_key', 'board_public']);
+    const settingMap = Object.fromEntries((settingRows || []).map((row) => [row.key, row.value]));
+    const boardPublic = isBoardPublic(settingMap.board_public);
+    socket.data.boardAccess =
+      boardPublic || (Boolean(boardKey) && Boolean(settingMap.board_key) && String(settingMap.board_key) === String(boardKey));
     next();
   });
 

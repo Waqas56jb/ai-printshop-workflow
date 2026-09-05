@@ -1,9 +1,14 @@
 import { useRef } from 'react';
 import { workerBoardUrl } from '../../utils/boardUrl.js';
 
-export function BoardPreview({ boardKey, reloadKey }) {
+export function BoardPreview({ boardKey, boardPublic = true, reloadKey }) {
   const iframeRef = useRef(null);
-  const src = workerBoardUrl({ key: boardKey, preview: true, label: 'Admin preview' });
+  const src = workerBoardUrl({
+    key: boardPublic ? '' : boardKey,
+    preview: true,
+    label: 'Admin preview',
+  });
+  const canShow = boardPublic || Boolean(boardKey);
 
   function goFullscreen() {
     iframeRef.current?.requestFullscreen?.().catch(() => {});
@@ -13,7 +18,7 @@ export function BoardPreview({ boardKey, reloadKey }) {
     <>
       <div className="frame">
         <div className="bezel"></div>
-        {boardKey ? (
+        {canShow ? (
           <iframe
             key={reloadKey}
             ref={iframeRef}

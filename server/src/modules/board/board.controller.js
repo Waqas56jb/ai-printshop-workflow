@@ -9,20 +9,19 @@ import * as boardService from './board.service.js';
 export const getBoard = asyncHandler(async (req, res) => {
   const key = typeof req.query.key === 'string' ? req.query.key : '';
   const boardKey = await settingsService.getSetting('board_key', '');
-  const allowed = Boolean(key && boardKey && key === boardKey);
+  const boardPublic = settingsService.isBoardPublic(await settingsService.getSetting('board_public', true));
+  const keyOk = Boolean(key && boardKey && key === boardKey);
   void req.query.preview;
 
-  if (!allowed) {
-    const profile = await optionalUser(req);
-    if (!profile || !['admin', 'staff'].includes(profile.role)) {
-      throw new ApiError(401, 'Board key required');
-    }
-  }
-
-  if (allowed) {
+  if (boardPublic || keyOk) {
     const board = await boardService.getBoardDisplay();
     noteBoardFetch();
     return sendOk(res, board, 'Board retrieved');
+  }
+
+  const profile = await optionalUser(req);
+  if (!profile || !['admin', 'staff'].includes(profile.role)) {
+    throw new ApiError(401, 'Board key required');
   }
 
   const board = await boardService.getBoard();
@@ -40,5 +39,6 @@ export const getStats = asyncHandler(async (_req, res) => {
 
 export const getKey = asyncHandler(async (_req, res) => {
   const key = await settingsService.getSetting('board_key', '');
-  return sendOk(res, { key: key || '' }, 'Board key');
+  const boardPublic = settingsService.isBoardPublic(await settingsService.getSetting('board_public', true));
+  return sendOk(res, { key: key || '', board_public: boardPublic }, 'Board key');
 });
