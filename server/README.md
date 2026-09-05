@@ -137,7 +137,7 @@ All JSON responses: `{ success, data, message }` unless noted.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/omi/webhook?uid=` | `x-omi-secret` (or Bearer / `?secret=`) | Buffer transcript segments 3s, then run intent pipeline. Response: `{ message }` |
+| POST | `/api/omi/webhook?uid=` | `x-omi-secret` (or Bearer / `?secret=`) | Buffer transcript segments ~1.2s, then run intent. Response `{ message }` (must be >5 chars — that is what OMI speaks/notifies). |
 | GET | `/api/omi/setup-status` | none | Whether webhook secret is set + profiles with `omi_uid` |
 
 ### Settings

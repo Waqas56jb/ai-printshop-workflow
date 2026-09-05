@@ -8,6 +8,7 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().optional().default(''),
+  REALTIME_MODEL: z.string().optional().default('gpt-4o-realtime-preview'),
   OMI_WEBHOOK_SECRET: z.string().optional().default(''),
   OMI_APP_ID: z.string().optional().default(''),
   OMI_APP_SECRET: z.string().optional().default(''),

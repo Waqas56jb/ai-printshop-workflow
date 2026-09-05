@@ -12,17 +12,30 @@ export function VoiceTicker({ lastVoice, updatedAt }) {
               <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2" />
             </svg>
           </span>
-          {lastVoice.transcript ? <q>{lastVoice.transcript}</q> : null}
-          {lastVoice.summary ? <b>{lastVoice.summary}</b> : null}
+          <div className="tick-copy">
+            {lastVoice.transcript ? <q>{lastVoice.transcript}</q> : null}
+            {lastVoice.summary ? <b>{lastVoice.summary}</b> : null}
+          </div>
           {who || lastVoice.created_at ? (
-            <span>
-              {who ? `· ${who}` : ''}
-              {who && lastVoice.created_at ? ' · ' : who ? '' : '· '}
+            <span className="tick-meta">
+              {who || ''}
+              {who && lastVoice.created_at ? ' · ' : ''}
               {lastVoice.created_at ? formatRelative(lastVoice.created_at) : ''}
             </span>
           ) : null}
         </div>
-      ) : null}
+      ) : (
+        <div className="tick idle">
+          <span className="mic">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2" />
+            </svg>
+          </span>
+          <div className="tick-copy">
+            <b>Listening for shop commands</b>
+          </div>
+        </div>
+      )}
       <div className="r">
         <span>
           <i style={{ background: 'var(--amber)' }}></i>due today

@@ -34,6 +34,8 @@ export const SETTING_DEFAULTS = {
   notify_pending_voice: true,
   notify_daily_summary: false,
   notify_email: '',
+  voice_agent_enabled: true,
+  voice_agent_voice: 'alloy',
 };
 
 const HIDDEN_KEYS = new Set(['omi_webhook_secret']);

@@ -52,7 +52,7 @@ export function JobCard({ job, stageId, stageName, settings, prevJobs }) {
     art = (
       <span className="art ok">
         <ArtIcon approved />
-        approved
+        Art
       </span>
     );
   } else if (job.artworks_count > 0) {
@@ -66,25 +66,25 @@ export function JobCard({ job, stageId, stageName, settings, prevJobs }) {
     art = (
       <span className="art no">
         <ArtIcon />
-        no art
+        —
       </span>
     );
   }
 
   return (
-    <div className={classes.join(' ')}>
-      {prio ? <span className={`prio ${prio}`}>{prio === 'urgent' ? 'Urgent' : 'High'}</span> : null}
-      <div className="l1">
+    <article className={classes.join(' ')}>
+      <div className="card-top">
         <span className="jn">{job.job_number}</span>
-        {showCustomer && job.customer_name ? <span className="cust">{job.customer_name}</span> : null}
+        {prio ? <span className={`prio ${prio}`}>{prio === 'urgent' ? 'Urgent' : 'High'}</span> : null}
       </div>
+      {showCustomer && job.customer_name ? <div className="cust">{job.customer_name}</div> : null}
       <div className="title">{job.title}</div>
       <div className="l3">
         {job.assigned_initials ? <span className="who">{job.assigned_initials}</span> : null}
-        <span className="qty num">{job.quantity}</span>
+        <span className="qty num">×{job.quantity}</span>
         {art}
         {showDue && due ? <span className="due">{due}</span> : null}
       </div>
-    </div>
+    </article>
   );
 }

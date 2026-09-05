@@ -137,10 +137,7 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
   const autoExecute = settings.voice_auto_execute !== false;
 
   if (!startsWithTrigger(transcript, trigger)) {
-    return {
-      ignored: true,
-      message: 'Transcript ignored; trigger word not present.',
-    };
+    return { ignored: true, message: '' };
   }
 
   const cleaned = stripTrigger(transcript, trigger) || transcript;
@@ -163,7 +160,10 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
 
   const { intent, jobs } = parsed;
   if (intent.action === 'unknown') {
-    return { ignored: true, message: '' };
+    return {
+      ignored: true,
+      message: intent.reply || "Sorry, I didn't catch a job command. Try asking what's due today.",
+    };
   }
 
   const { matches, job } = resolveJob(intent, jobs);

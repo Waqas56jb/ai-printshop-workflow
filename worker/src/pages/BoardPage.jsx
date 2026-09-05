@@ -103,7 +103,7 @@ export function BoardPage({ boardKey, preview = false, label = '' }) {
   return (
     <div className="board">
       {offline ? <OfflineBanner /> : null}
-      <BoardHeader shop={data?.shop} summary={data?.summary} live={!offline} now={now} />
+      <BoardHeader shop={data?.shop} summary={data?.summary} stages={stages} live={!offline} now={now} />
       <main className="cols">
         {stages.map((stage) => (
           <StageColumn key={stage.id} stage={stage} settings={settings} prevJobs={prevJobs} />

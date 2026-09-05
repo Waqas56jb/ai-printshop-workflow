@@ -15,7 +15,6 @@ export const webhook = asyncHandler(async (req, res) => {
     omiService.buildWebhookResponse({
       sessionId,
       message: result.message,
-      replyOnDevice: result.replyOnDevice,
     })
   );
 });

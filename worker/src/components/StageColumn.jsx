@@ -85,16 +85,20 @@ export function StageColumn({ stage, settings, prevJobs }) {
         <span className={`n num${jobs.length ? '' : ' zero'}`}>{jobs.length}</span>
       </div>
       <div className="cards" ref={cardsRef}>
-        {shown.map((job) => (
-          <JobCard
-            key={job.id}
-            job={job}
-            stageId={stage.id}
-            stageName={stage.name}
-            settings={settings}
-            prevJobs={prevJobs}
-          />
-        ))}
+        {jobs.length === 0 ? (
+          <div className="empty-col">Clear</div>
+        ) : (
+          shown.map((job) => (
+            <JobCard
+              key={job.id}
+              job={job}
+              stageId={stage.id}
+              stageName={stage.name}
+              settings={settings}
+              prevJobs={prevJobs}
+            />
+          ))
+        )}
         {hidden > 0 ? <div className="more">+{hidden} more</div> : null}
       </div>
     </section>

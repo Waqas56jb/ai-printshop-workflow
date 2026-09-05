@@ -7,3 +7,4 @@ export const WORKER_URL = (
 ).replace(/\/$/, '');
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+export const REALTIME_ENABLED = import.meta.env.VITE_REALTIME_ENABLED !== 'false';

@@ -30,6 +30,8 @@ router.patch(
         voice_reply_on_device: z.boolean().optional(),
         voice_language: z.string().optional(),
         voice_allow_skip: z.boolean().optional(),
+        voice_agent_enabled: z.boolean().optional(),
+        voice_agent_voice: z.string().optional(),
         board_refresh_seconds: z.number().int().positive().optional(),
         board_public: z.boolean().optional(),
         business_name: z.string().optional(),
