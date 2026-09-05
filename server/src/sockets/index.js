@@ -7,10 +7,7 @@ import { trackBoardJoin, trackBoardLeave } from './boardScreens.js';
 let io;
 
 export function getIO() {
-  if (!io) {
-    throw new Error('Socket.io has not been initialized');
-  }
-  return io;
+  return io || null;
 }
 
 async function resolveSocketUser(token) {

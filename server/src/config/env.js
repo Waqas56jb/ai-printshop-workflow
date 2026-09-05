@@ -9,6 +9,8 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().optional().default(''),
   OMI_WEBHOOK_SECRET: z.string().optional().default(''),
+  OMI_APP_ID: z.string().optional().default(''),
+  OMI_APP_SECRET: z.string().optional().default(''),
   PUBLIC_SERVER_URL: z.string().url().default('https://ai-printshop-workflow-server.vercel.app'),
   CLIENT_ORIGINS: z
     .string()

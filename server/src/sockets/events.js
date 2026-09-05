@@ -2,38 +2,41 @@ import { getIO } from './index.js';
 
 function broadcast(event, payload) {
   const io = getIO();
+  if (!io) return;
   io.to('board').to('staff').to('admin').emit(event, payload);
+}
+
+function refreshBoard() {
+  const io = getIO();
+  if (!io) return;
+  io.to('board').emit('board:refresh');
 }
 
 export function emitJobCreated(job) {
   broadcast('job:created', job);
-  getIO().to('board').emit('board:refresh');
+  refreshBoard();
 }
 
 export function emitJobUpdated(job) {
   broadcast('job:updated', job);
-  getIO().to('board').emit('board:refresh');
+  refreshBoard();
 }
 
 export function emitJobMoved(payload) {
   broadcast('job:moved', payload);
-  getIO().to('board').emit('board:refresh');
+  refreshBoard();
 }
 
 export function emitJobDeleted(payload) {
   broadcast('job:deleted', payload);
-  getIO().to('board').emit('board:refresh');
+  refreshBoard();
 }
 
 export function emitVoiceCommand(payload) {
   broadcast('voice:command', payload);
-  getIO().to('board').emit('board:refresh');
+  refreshBoard();
 }
 
 export function emitBoardRefresh() {
-  try {
-    getIO().to('board').emit('board:refresh');
-  } catch {
-    /* sockets not initialized (CLI scripts) */
-  }
+  refreshBoard();
 }

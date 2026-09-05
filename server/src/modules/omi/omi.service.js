@@ -18,15 +18,49 @@ export function listDebugEvents() {
 }
 
 function extractTexts(payload) {
-  if (Array.isArray(payload?.segments)) {
-    return payload.segments
-      .map((segment) => segment.text)
+  const segments = Array.isArray(payload) ? payload : payload?.segments;
+  if (Array.isArray(segments)) {
+    return segments
+      .map((segment) => (typeof segment === 'string' ? segment : segment?.text))
       .filter((text) => typeof text === 'string' && text.trim())
       .map((text) => text.trim());
   }
   if (typeof payload?.transcript === 'string') return [payload.transcript.trim()];
   if (typeof payload?.text === 'string') return [payload.text.trim()];
   return [];
+}
+
+async function sendOmiNotification(uid, message) {
+  if (!env.OMI_APP_ID || !env.OMI_APP_SECRET || !uid || !message) return false;
+  try {
+    const url = new URL(`https://api.omi.me/v2/integrations/${env.OMI_APP_ID}/notification`);
+    url.searchParams.set('uid', uid);
+    url.searchParams.set('message', message);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.OMI_APP_SECRET}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    recordDebug({ uid, kind: 'reply', text: message, ok: response.ok, status: response.status });
+    return response.ok;
+  } catch (error) {
+    recordDebug({ uid, kind: 'reply', text: message, ok: false, error: error.message });
+    return false;
+  }
+}
+
+export function buildWebhookResponse({ sessionId, message, replyOnDevice }) {
+  const body = { message: message || '', session_id: sessionId || '' };
+  if (replyOnDevice && message) {
+    const safe = String(message).replace(/"/g, "'").slice(0, 280);
+    body.notification = {
+      prompt: `Speak this exact reply to the print shop worker, nothing else: ${safe}`,
+      params: [],
+    };
+  }
+  return body;
 }
 
 export async function verifyOmiSecret(req) {
@@ -125,9 +159,13 @@ export async function handleWebhook({ uid, payload }) {
         userId: profile?.id || null,
         omiUid: uid,
       });
-      buffer.resolve({ message: result.message || 'Done.' });
+      const settings = await settingsService.getSettings();
+      const replyOnDevice = settings.voice_reply_on_device !== false;
+      const message = result.message || 'Done.';
+      if (replyOnDevice) await sendOmiNotification(uid, message);
+      buffer.resolve({ message, replyOnDevice });
     } catch (error) {
-      buffer.resolve({ message: error.message || 'Something went wrong.' });
+      buffer.resolve({ message: error.message || 'Something went wrong.', replyOnDevice: false });
     }
   }, 3000);
 
