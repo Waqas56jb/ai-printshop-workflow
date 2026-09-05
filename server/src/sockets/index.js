@@ -2,7 +2,6 @@ import { Server } from 'socket.io';
 import { env } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
-import { isBoardPublic } from '../modules/settings/settings.service.js';
 import { trackBoardJoin, trackBoardLeave } from './boardScreens.js';
 
 let io;
@@ -48,7 +47,12 @@ export function initSockets(httpServer) {
       .select('key, value')
       .in('key', ['board_key', 'board_public']);
     const settingMap = Object.fromEntries((settingRows || []).map((row) => [row.key, row.value]));
-    const boardPublic = isBoardPublic(settingMap.board_public);
+    const boardPublic =
+      settingMap.board_public === undefined ||
+      settingMap.board_public === null ||
+      (settingMap.board_public !== false &&
+        settingMap.board_public !== 'false' &&
+        settingMap.board_public !== 0);
     socket.data.boardAccess =
       boardPublic || (Boolean(boardKey) && Boolean(settingMap.board_key) && String(settingMap.board_key) === String(boardKey));
     next();
