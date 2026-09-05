@@ -12,8 +12,4 @@ create index if not exists omi_devices_last_heard_idx on public.omi_devices (las
 
 alter table public.omi_devices enable row level security;
 
-insert into public.omi_devices (omi_uid, user_id, first_heard_at, last_heard_at)
-select omi_uid, id, now(), now()
-from public.profiles
-where omi_uid is not null
-on conflict (omi_uid) do nothing;
+-- Devices appear only after a real webhook transcript, not from seed profiles.

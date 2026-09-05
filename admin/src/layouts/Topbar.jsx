@@ -72,8 +72,8 @@ export function Topbar() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const connected = Boolean(omi?.configured);
-  const devices = omi?.profiles_with_omi ?? 0;
+  const devices = omi?.devices?.length ?? omi?.profiles_with_omi ?? 0;
+  const connected = devices > 0;
   const showHits = open && query.trim().length >= 2;
   const empty = showHits && !hits.jobs.length && !hits.customers.length;
 
@@ -120,7 +120,11 @@ export function Topbar() {
       </div>
       <div className={`omi ${connected ? '' : 'off'}`.trim()}>
         <span className="dot"></span>
-        {connected ? `OMI connected · ${devices} device${devices === 1 ? '' : 's'}` : 'OMI not configured'}
+        {connected
+          ? `OMI connected · ${devices} device${devices === 1 ? '' : 's'}`
+          : omi?.configured
+            ? 'OMI ready · no devices yet'
+            : 'OMI not configured'}
       </div>
       <Button onClick={() => navigate('/jobs/new')}>
         <Plus />

@@ -70,7 +70,7 @@ export function TopNav({ onNewJob }) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const connected = Boolean(omi?.configured);
+  const connected = (omi?.devices?.length ?? omi?.profiles_with_omi ?? 0) > 0;
   const showHits = open && query.trim().length >= 2;
   const empty = showHits && !hits.jobs.length && !hits.customers.length;
 
@@ -137,7 +137,7 @@ export function TopNav({ onNewJob }) {
       </div>
       <div className={`omi ${connected ? '' : 'off'}`.trim()}>
         <span className="dot"></span>
-        {connected ? 'OMI on' : 'OMI off'}
+        {connected ? 'OMI on' : omi?.configured ? 'OMI ready' : 'OMI off'}
       </div>
       <Button onClick={onNewJob}>
         <Plus />
