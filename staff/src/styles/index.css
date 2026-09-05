@@ -2,3 +2,7 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./tokens.css";
 @import "./staff.css";
+@import "./jobs.css";
+@import "./job-detail.css";
+@import "./customers.css";
+@import "./voice.css";

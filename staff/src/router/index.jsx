@@ -18,8 +18,10 @@ export function AppRouter() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<TodayPage />} />
             <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/new" element={<JobsPage />} />
             <Route path="/jobs/:id" element={<JobDetailPage />} />
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/customers/:id" element={<CustomersPage />} />
             <Route path="/voice" element={<VoicePage />} />
             <Route path="/board" element={<BoardPage />} />
           </Route>

@@ -15,6 +15,10 @@
 .jobs-page .field select{padding-right:4px;appearance:none;-webkit-appearance:none;cursor:pointer}
 .jobs-page .field:focus-within{border-color:var(--ink)}
 .jobs-page .toolbar .spacer{flex:1}
+.jobs-page .mine-toggle{display:flex;border:1px solid var(--rule);border-radius:var(--r-sm);overflow:hidden;background:var(--sheet)}
+.jobs-page .mine-toggle button{height:36px;padding:0 12px;font-weight:500;color:var(--ink-2)}
+.jobs-page .mine-toggle button.on{background:var(--ink);color:#fff}
+.jobs-page .filter-chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:1px solid var(--rule);border-radius:99px;background:var(--magenta-2);color:#A81A5F;font-size:13px;font-weight:500}
 .jobs-page .btn{padding:0 14px;height:36px}
 .jobs-page .btn-sm{height:30px;padding:0 10px;font-size:12.5px}
 

@@ -56,7 +56,7 @@ export function JobNotes({ job, currentUserId, onChanged }) {
             </div>
             <p>{note.content}</p>
           </div>
-          {note.author_id === currentUserId ? (
+          {note.author_id === currentUserId || note.author?.id === currentUserId ? (
             <button type="button" className="del" onClick={() => remove(note.id)}>
               Delete
             </button>
