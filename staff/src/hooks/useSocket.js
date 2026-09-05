@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { API_URL } from '../config.js';
 import { useAuthStore } from '../store/authStore.js';
 
 const EVENTS = [
@@ -18,7 +19,7 @@ export function useSocket(onEvent) {
   useEffect(() => {
     if (!token || !onEvent) return undefined;
 
-    const socket = io(import.meta.env.VITE_API_URL, {
+    const socket = io(API_URL, {
       auth: { token },
     });
 

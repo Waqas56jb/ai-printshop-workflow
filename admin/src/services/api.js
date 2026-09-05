@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { toast } from 'sonner';
+import { API_URL } from '../config.js';
 import { supabase } from './supabase.js';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_URL,
 });
 
 api.interceptors.request.use(async (config) => {

@@ -23,7 +23,17 @@ export function createApp() {
   app.use(helmet());
   app.use(
     cors({
-      origin: env.clientOrigins,
+      origin(origin, callback) {
+        if (
+          !origin ||
+          env.clientOrigins.includes(origin) ||
+          /\.vercel\.app$/.test(origin)
+        ) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`Origin not allowed: ${origin}`));
+      },
       credentials: true,
     })
   );

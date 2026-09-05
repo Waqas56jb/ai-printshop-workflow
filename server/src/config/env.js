@@ -11,10 +11,24 @@ const envSchema = z.object({
   OMI_WEBHOOK_SECRET: z.string().optional().default(''),
   CLIENT_ORIGINS: z
     .string()
-    .default('http://localhost:5173,http://localhost:5174,http://localhost:5175'),
+    .default(
+      [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:5175',
+        'https://ai-printshop-workflow-admin.vercel.app',
+        'https://ai-printshop-workflow-staff.vercel.app',
+        'https://ai-printshop-workflow-worker.vercel.app',
+      ].join(',')
+    ),
 });
 
-const parsed = envSchema.parse(process.env);
+const parsedResult = envSchema.safeParse(process.env);
+if (!parsedResult.success) {
+  const missing = parsedResult.error.issues.map((issue) => issue.path.join('.') || issue.message).join(', ');
+  throw new Error(`Server env is incomplete (${missing}). Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on Vercel.`);
+}
+const parsed = parsedResult.data;
 
 export const env = {
   ...parsed,

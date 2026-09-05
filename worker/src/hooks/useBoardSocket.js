@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { API_URL } from '../config.js';
 
 const EVENTS = ['board:refresh', 'job:created', 'job:updated', 'job:moved', 'job:deleted', 'voice:command'];
 
@@ -7,7 +8,7 @@ export function useBoardSocket(key, onRefresh, { label = '', preview = false } =
   useEffect(() => {
     if (!key || !onRefresh) return undefined;
 
-    const socket = io(import.meta.env.VITE_API_URL, {
+    const socket = io(API_URL, {
       auth: { key, label, preview },
       query: { key, label, preview: preview ? '1' : '' },
     });

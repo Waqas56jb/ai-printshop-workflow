@@ -1,3 +1,5 @@
+import { workerBaseUrl } from '../../utils/boardUrl.js';
+
 const COLUMNS = [
   { name: 'Quote', color: '#8A93A1', n: 2 },
   { name: 'Approved', color: '#0AA3C7', n: 1 },
@@ -8,7 +10,7 @@ const COLUMNS = [
 ];
 
 function boardLink(key) {
-  const base = (import.meta.env.VITE_WORKER_URL || 'http://localhost:5175').replace(/\/$/, '');
+  const base = workerBaseUrl();
   return `${base}/?key=${key || ''}`;
 }
 
@@ -19,7 +21,7 @@ function maskedKey(key = '') {
 
 export function BoardSection({ form, setField }) {
   const url = boardLink(form.board_key);
-  const shown = `${(import.meta.env.VITE_WORKER_URL || 'http://localhost:5175').replace(/\/$/, '')}/?key=${maskedKey(form.board_key)}`;
+  const shown = `${workerBaseUrl()}/?key=${maskedKey(form.board_key)}`;
 
   return (
     <div className="panel" id="board">

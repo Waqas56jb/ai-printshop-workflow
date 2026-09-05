@@ -1,5 +1,7 @@
+import { WORKER_URL } from '../config.js';
+
 export function workerBaseUrl() {
-  return (import.meta.env.VITE_WORKER_URL || 'http://localhost:5175').replace(/\/$/, '');
+  return WORKER_URL;
 }
 
 export function workerBoardUrl({ key = '', preview = false, label = '' } = {}) {
