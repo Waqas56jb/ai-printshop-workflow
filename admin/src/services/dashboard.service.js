@@ -1,3 +1,4 @@
+import { toPublicApiUrl } from '../config.js';
 import api from './api.js';
 
 export async function getAdminDashboard() {
@@ -7,7 +8,9 @@ export async function getAdminDashboard() {
 
 export async function getOmiSetupStatus() {
   const { data } = await api.get('/api/omi/setup-status');
-  return data.data;
+  const status = data.data;
+  if (status?.webhook_url) status.webhook_url = toPublicApiUrl(status.webhook_url);
+  return status;
 }
 
 export async function listJobs(params = {}) {
@@ -37,7 +40,7 @@ export async function updateSettings(payload) {
 
 export async function getOmiWebhookUrl() {
   const { data } = await api.get('/api/omi/webhook-url');
-  return data.data;
+  return { ...data.data, url: toPublicApiUrl(data.data?.url) };
 }
 
 export async function getOmiDebug() {

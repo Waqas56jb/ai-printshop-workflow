@@ -1,4 +1,5 @@
 import { supabase, unwrap } from '../../config/supabase.js';
+import { env } from '../../config/env.js';
 import { ApiError } from '../../utils/ApiError.js';
 import * as voiceService from '../voice/voice.service.js';
 import * as settingsService from '../settings/settings.service.js';
@@ -48,6 +49,8 @@ export async function verifyOmiSecret(req) {
 }
 
 export function publicBase(req) {
+  const configured = env.PUBLIC_SERVER_URL?.replace(/\/$/, '');
+  if (configured) return configured;
   const host = req.get('x-forwarded-host') || req.get('host');
   const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
   return `${proto}://${host}`;

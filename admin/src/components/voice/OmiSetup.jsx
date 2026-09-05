@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { toPublicApiUrl } from '../../config.js';
 import { getOmiWebhookUrl } from '../../services/dashboard.service.js';
 
 export function OmiSetup({ maskedUrl }) {
@@ -9,7 +10,7 @@ export function OmiSetup({ maskedUrl }) {
     setBusy(true);
     try {
       const data = await getOmiWebhookUrl();
-      await navigator.clipboard.writeText(data.url);
+      await navigator.clipboard.writeText(toPublicApiUrl(data.url));
       toast('Webhook URL copied');
     } catch (error) {
       toast(error.response?.data?.message || 'Could not copy webhook URL');
@@ -40,7 +41,7 @@ export function OmiSetup({ maskedUrl }) {
               Paste this webhook URL, then install it.
             </p>
             <div className="copy">
-              <span>{maskedUrl || 'https://…/api/omi/webhook?secret=••••'}</span>
+              <span>{toPublicApiUrl(maskedUrl) || 'https://ai-printshop-workflow-server.vercel.app/api/omi/webhook?secret=••••'}</span>
               <button type="button" onClick={copy} disabled={busy}>
                 Copy
               </button>
