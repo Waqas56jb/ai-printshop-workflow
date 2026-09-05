@@ -41,8 +41,9 @@ export function OmiDebugFeed({ refreshKey }) {
             events.map((row, index) => (
               <div className="debug-row" key={`${row.at}-${index}`}>
                 <span className="num">{formatDayTime(row.at)}</span>
+                <span>{row.kind || 'webhook'}</span>
                 <span>{row.uid || '—'}</span>
-                <span>{row.text}</span>
+                <span>{row.text}{row.reason ? ` (${row.reason})` : ''}</span>
               </div>
             ))
           )}

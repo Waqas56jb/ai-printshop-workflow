@@ -9,8 +9,8 @@ export const webhook = asyncHandler(async (req, res) => {
   if (!uid) {
     throw new ApiError(400, 'uid query parameter is required');
   }
-  const result = await omiService.handleWebhook({ uid, payload: req.body });
   const sessionId = req.query.session_id || req.body?.session_id || '';
+  const result = await omiService.handleWebhook({ uid, sessionId, payload: req.body });
   return res.status(200).json(
     omiService.buildWebhookResponse({
       sessionId,

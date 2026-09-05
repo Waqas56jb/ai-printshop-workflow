@@ -10,7 +10,8 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "check": "node scripts/check-connection.js",
-    "create-admin": "node scripts/create-admin.js"
+    "create-admin": "node scripts/create-admin.js",
+    "omi:sim": "node scripts/omi-sim.js"
   },
   "keywords": [],
   "author": "",

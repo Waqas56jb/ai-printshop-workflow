@@ -371,24 +371,32 @@ Rules:
   }
 }
 
+function normalizeRef(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/['’]s\b/g, '')
+    .replace(/\b(job|the|a|an|to|for)\b/g, ' ')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function matchJobsByRef(jobRef, summaries) {
-  const q = (jobRef || '').toLowerCase().trim();
+  const q = normalizeRef(jobRef);
   if (!q) return [];
 
-  const exactNumber = summaries.filter((job) => job.job_number.toLowerCase() === q);
+  const exactNumber = summaries.filter((job) => normalizeRef(job.job_number) === q);
   if (exactNumber.length === 1) return exactNumber;
 
+  const tokens = q.split(' ').filter((part) => part.length > 1);
   return summaries.filter((job) => {
-    const number = job.job_number.toLowerCase();
-    const title = (job.title || '').toLowerCase();
-    const customer = (job.customer_name || '').toLowerCase();
-    return (
-      number.includes(q) ||
-      q.includes(number) ||
-      title.includes(q) ||
-      q.includes(title) ||
-      customer.includes(q) ||
-      q.includes(customer)
-    );
+    const number = normalizeRef(job.job_number);
+    const title = normalizeRef(job.title);
+    const customer = normalizeRef(job.customer_name);
+    const hay = `${number} ${title} ${customer}`;
+    if (hay.includes(q) || q.includes(number) || (title && q.includes(title)) || (customer && q.includes(customer))) {
+      return true;
+    }
+    return tokens.length > 0 && tokens.every((token) => hay.includes(token));
   });
 }

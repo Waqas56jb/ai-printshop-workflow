@@ -162,9 +162,13 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
   }
 
   const { intent, jobs } = parsed;
+  if (intent.action === 'unknown') {
+    return { ignored: true, message: '' };
+  }
+
   const { matches, job } = resolveJob(intent, jobs);
   const threshold = settings.voice_confidence_threshold ?? 0.7;
-  const pending = intent.action === 'unknown' || needsConfirmation(intent, matches, autoExecute, threshold);
+  const pending = needsConfirmation(intent, matches, autoExecute, threshold);
 
   if (pending) {
     const command = await saveVoiceCommand({

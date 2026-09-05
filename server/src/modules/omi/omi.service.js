@@ -4,7 +4,6 @@ import { ApiError } from '../../utils/ApiError.js';
 import * as voiceService from '../voice/voice.service.js';
 import * as settingsService from '../settings/settings.service.js';
 
-const buffers = new Map();
 const debugEvents = [];
 const DEBUG_LIMIT = 20;
 
@@ -17,10 +16,16 @@ export function listDebugEvents() {
   return debugEvents;
 }
 
-function extractTexts(payload) {
+const memoryBuffers = new Map();
+const inflight = new Map();
+const FLUSH_MS = 3000;
+const MIN_WORDS = 3;
+
+function extractUserTexts(payload) {
   const segments = Array.isArray(payload) ? payload : payload?.segments;
   if (Array.isArray(segments)) {
     return segments
+      .filter((segment) => typeof segment === 'string' || segment?.is_user !== false)
       .map((segment) => (typeof segment === 'string' ? segment : segment?.text))
       .filter((text) => typeof text === 'string' && text.trim())
       .map((text) => text.trim());
@@ -28,6 +33,46 @@ function extractTexts(payload) {
   if (typeof payload?.transcript === 'string') return [payload.transcript.trim()];
   if (typeof payload?.text === 'string') return [payload.text.trim()];
   return [];
+}
+
+function wordCount(text) {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+function isCompleteSentence(text) {
+  return /[.?!]["']?$/.test(text);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function appendBuffer(key, texts) {
+  const { data, error } = await supabase.from('omi_buffers').select('texts').eq('buffer_key', key).maybeSingle();
+  if (!error) {
+    const next = [...(data?.texts || []), ...texts];
+    unwrap(
+      await supabase.from('omi_buffers').upsert({
+        buffer_key: key,
+        texts: next,
+        updated_at: new Date().toISOString(),
+      }),
+      'Failed to buffer transcript'
+    );
+    return next;
+  }
+  const current = memoryBuffers.get(key) || [];
+  const next = [...current, ...texts];
+  memoryBuffers.set(key, next);
+  return next;
+}
+
+async function takeBuffer(key) {
+  const { data, error } = await supabase.from('omi_buffers').delete().eq('buffer_key', key).select('texts').maybeSingle();
+  if (!error) return data?.texts || [];
+  const texts = memoryBuffers.get(key) || [];
+  memoryBuffers.delete(key);
+  return texts;
 }
 
 async function sendOmiNotification(uid, message) {
@@ -125,51 +170,61 @@ export async function touchDevice(omiUid, userId = null) {
   );
 }
 
-export async function handleWebhook({ uid, payload }) {
-  const texts = extractTexts(payload);
+export async function handleWebhook({ uid, sessionId = '', payload }) {
+  const texts = extractUserTexts(payload);
+  const key = `${uid}::${sessionId || 'default'}`;
   recordDebug({
     uid,
+    session: sessionId,
     kind: 'webhook',
     text: texts.join(' ').replace(/\s+/g, ' ').trim() || '(empty)',
   });
   if (!texts.length) {
-    return { message: 'No speech received.' };
+    return { message: '', replyOnDevice: false };
   }
 
-  if (!buffers.has(uid)) {
-    let resolve;
-    const promise = new Promise((next) => {
-      resolve = next;
+  const combined = (await appendBuffer(key, texts)).join(' ').replace(/\s+/g, ' ').trim();
+  const waitMs = isCompleteSentence(combined) && wordCount(combined) >= MIN_WORDS ? 400 : FLUSH_MS;
+  if (!inflight.has(key)) {
+    const pending = flushBuffer({ key, uid, sessionId, waitMs }).finally(() => inflight.delete(key));
+    inflight.set(key, pending);
+  }
+  return inflight.get(key);
+}
+
+async function flushBuffer({ key, uid, sessionId, waitMs }) {
+  await sleep(waitMs);
+  const flushed = (await takeBuffer(key)).join(' ').replace(/\s+/g, ' ').trim();
+  if (!flushed) {
+    return { message: '', replyOnDevice: false };
+  }
+  if (wordCount(flushed) < MIN_WORDS) {
+    recordDebug({ uid, session: sessionId, kind: 'ignore', text: flushed, reason: 'too_short' });
+    return { message: '', replyOnDevice: false };
+  }
+
+  try {
+    const profile = await voiceService.findProfileByOmiUid(uid);
+    await touchDevice(uid, profile?.id || null);
+    const result = await voiceService.runIntentPipeline({
+      transcript: flushed,
+      userId: profile?.id || null,
+      omiUid: uid,
     });
-    buffers.set(uid, { texts: [], promise, resolve, timer: null });
-  }
-
-  const buffer = buffers.get(uid);
-  buffer.texts.push(...texts);
-
-  clearTimeout(buffer.timer);
-  buffer.timer = setTimeout(async () => {
-    const sentence = buffer.texts.join(' ').replace(/\s+/g, ' ').trim();
-    buffers.delete(uid);
-    try {
-      const profile = await voiceService.findProfileByOmiUid(uid);
-      await touchDevice(uid, profile?.id || null);
-      const result = await voiceService.runIntentPipeline({
-        transcript: sentence,
-        userId: profile?.id || null,
-        omiUid: uid,
-      });
-      const settings = await settingsService.getSettings();
-      const replyOnDevice = settings.voice_reply_on_device !== false;
-      const message = result.message || 'Done.';
-      if (replyOnDevice) await sendOmiNotification(uid, message);
-      buffer.resolve({ message, replyOnDevice });
-    } catch (error) {
-      buffer.resolve({ message: error.message || 'Something went wrong.', replyOnDevice: false });
+    if (result.ignored) {
+      recordDebug({ uid, session: sessionId, kind: 'ignore', text: flushed, reason: result.message || 'unknown' });
+      return { message: '', replyOnDevice: false };
     }
-  }, 3000);
-
-  return buffer.promise;
+    const settings = await settingsService.getSettings();
+    const replyOnDevice = settings.voice_reply_on_device !== false;
+    const message = result.message || 'Done.';
+    recordDebug({ uid, session: sessionId, kind: 'reply', text: message });
+    if (replyOnDevice) await sendOmiNotification(uid, message);
+    return { message, replyOnDevice };
+  } catch (error) {
+    recordDebug({ uid, session: sessionId, kind: 'error', text: error.message });
+    return { message: error.message || 'Something went wrong.', replyOnDevice: false };
+  }
 }
 
 export async function getSetupStatus(req) {
