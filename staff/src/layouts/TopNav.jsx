@@ -147,7 +147,7 @@ export function TopNav({ onNewJob, voice }) {
       />
       <Button onClick={onNewJob}>
         <Plus />
-        New job
+        <span className="btn-label">New job</span>
       </Button>
       <div className="me">
         <button type="button" onClick={() => setMenu((openMenu) => !openMenu)} aria-label="Account">
@@ -168,6 +168,15 @@ export function TopNav({ onNewJob, voice }) {
           </div>
         ) : null}
       </div>
+      <nav className="bottom-nav" aria-label="Staff">
+        {links.map((link) => (
+          <NavLink key={link.to} to={link.to} end={link.end} className={({ isActive }) => (isActive ? 'on' : '')}>
+            <link.icon />
+            <span>{link.label}</span>
+            {link.badge && pending ? <i className="badge">{pending}</i> : null}
+          </NavLink>
+        ))}
+      </nav>
     </header>
   );
 }

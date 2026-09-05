@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Menu, Plus, Search } from 'lucide-react';
 import { Button } from '../components/ui/Button.jsx';
 import { useSocket } from '../hooks/useSocket.js';
 import { getOmiSetupStatus, listJobs } from '../services/dashboard.service.js';
@@ -30,6 +30,7 @@ export function Topbar() {
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
   const pageTitle = useUiStore((state) => state.pageTitle);
+  const toggleNav = useUiStore((state) => state.toggleNav);
   const title = pageTitle || titles.find((item) => item.test(location.pathname))?.title || 'Dashboard';
 
   const refreshOmi = useCallback(() => {
@@ -86,6 +87,9 @@ export function Topbar() {
 
   return (
     <header className="topbar">
+      <button type="button" className="menu-btn" onClick={toggleNav} aria-label="Open menu">
+        <Menu />
+      </button>
       <h1>{title}</h1>
       <span className="date">{formatLongDate()}</span>
       <div className="spacer"></div>
@@ -128,7 +132,7 @@ export function Topbar() {
       </div>
       <Button onClick={() => navigate('/jobs/new')}>
         <Plus />
-        New job
+        <span className="btn-label">New job</span>
       </Button>
     </header>
   );

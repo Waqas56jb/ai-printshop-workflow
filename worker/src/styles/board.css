@@ -263,11 +263,20 @@ svg{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-lin
 }
 @media (max-width:1100px){
   html,body,#root{overflow:auto;height:auto}
-  .board{height:auto;min-height:100vh}
+  .board{height:auto;min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
   .cols{grid-auto-flow:row;grid-auto-columns:unset;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;min-height:auto}
   .col{min-height:auto}
   .cards{overflow:visible}
   .foot .r{display:none}
+}
+@media (max-width:768px){
+  .rings{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols{grid-template-columns:1fr}
+  .head{flex-wrap:wrap;gap:.6em}
+}
+@media (max-width:480px){
+  .rings{grid-template-columns:1fr 1fr}
+  .tick-copy{flex-direction:column;align-items:flex-start}
 }
 [data-theme="light"] .ring-track{stroke:rgba(0,0,0,.08)}
 [data-theme="light"] .pipe-track{background:rgba(0,0,0,.06)}

@@ -50,4 +50,5 @@
 .va-panel .tips button:hover{background:var(--rule-2);color:var(--ink)}
 .va-panel .err{margin:12px 14px;padding:10px 12px;border-radius:var(--r-md);background:#FBE3E1;color:var(--red);font-size:13px;display:none}
 .va-panel .err.show{display:block}
-@media (max-width:600px){.va-panel{right:0;left:0;bottom:0;width:auto;border-radius:var(--r-lg) var(--r-lg) 0 0}}
+@media (max-width:768px){.va-panel{right:12px;bottom:calc(72px + env(safe-area-inset-bottom));width:min(380px,calc(100vw - 24px))}}
+@media (max-width:600px){.va-panel{right:0;left:0;bottom:calc(56px + env(safe-area-inset-bottom));width:auto;border-radius:var(--r-lg) var(--r-lg) 0 0}}

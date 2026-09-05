@@ -118,9 +118,20 @@
 .ss-modal .temp{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:600}
 
 @media (max-width:900px){
+  .staff-page,.settings-page{padding:16px 14px 40px}
   .staff-page .stats{grid-template-columns:1fr 1fr}
   .staff-page .roles{grid-template-columns:1fr}
   .staff-page .role{border-right:0;border-bottom:1px solid var(--rule-2)}
+  .staff-page .row-ops{opacity:1}
   .settings-page .settings{grid-template-columns:1fr}
   .settings-page .snav{position:static;flex-direction:row;overflow-x:auto}
+  .settings-page .setting{flex-wrap:wrap}
+  .settings-page .setting .field{width:100%;max-width:280px}
+  .settings-page .hours{grid-template-columns:1fr}
+  .settings-page .hours .closed{grid-column:auto}
+  .settings-page .save-bar{left:12px;right:12px;align-self:stretch;justify-content:space-between;border-radius:16px;bottom:calc(12px + env(safe-area-inset-bottom))}
+}
+@media (max-width:480px){
+  .staff-page .stats{grid-template-columns:1fr}
+  .staff-page .intro,.settings-page .intro{flex-direction:column}
 }

@@ -87,4 +87,18 @@
 .file-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-2)}
 .skel-row{height:48px;margin:8px 16px}
 
-@media (max-width:900px){.jobs-page .field.search{width:100%}.jobs-page .toolbar{flex-wrap:wrap}.drawer{width:100%}}
+@media (max-width:900px){
+  .jobs-page{padding:16px 14px 88px}
+  .jobs-page .field.search{width:100%;max-width:none}
+  .jobs-page .toolbar{flex-wrap:wrap}
+  .drawer{width:100%}
+  .jobs-page .row-actions{opacity:1}
+  .bulk{left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));transform:none;flex-wrap:wrap;border-radius:16px;justify-content:center}
+}
+@media (max-width:640px){
+  .jobs-page{padding:14px 12px 110px}
+  .drawer .row{grid-template-columns:1fr}
+  .jobs-page table th:nth-child(5),.jobs-page table td:nth-child(5),
+  .jobs-page table th:nth-child(7),.jobs-page table td:nth-child(7),
+  .jobs-page table th:nth-child(8),.jobs-page table td:nth-child(8){display:none}
+}

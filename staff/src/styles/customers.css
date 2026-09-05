@@ -82,3 +82,13 @@
 .jobs-page .filter-chip:hover{background:var(--magenta);color:#fff}
 
 @media (max-width:1100px){.customers-page{grid-template-columns:1fr}.customers-page .side{position:static}}
+@media (max-width:768px){
+  .customers-page{padding:16px 14px 110px}
+  .customers-page .stats{grid-template-columns:1fr}
+  .customers-page .toolbar{flex-wrap:wrap}
+  .customers-page .toolbar .field.search{max-width:none}
+  .cust-modal .row{grid-template-columns:1fr}
+}
+@media (max-width:480px){
+  .customers-page{padding:14px 12px 110px}
+}

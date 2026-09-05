@@ -16,6 +16,7 @@ import { getBoardStats } from '../services/board.service.js';
 import { listJobs, listVoiceHistory } from '../services/dashboard.service.js';
 import { useSocket } from '../hooks/useSocket.js';
 import { useSettingsStore } from '../store/settingsStore.js';
+import { useUiStore } from '../store/uiStore.js';
 import { initials } from '../utils/format.js';
 
 const primary = [
@@ -32,9 +33,9 @@ const setup = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
-function NavItem({ to, label, icon: Icon, end, badge, live }) {
+function NavItem({ to, label, icon: Icon, end, badge, live, onClick }) {
   return (
-    <NavLink to={to} end={end} className={({ isActive }) => (isActive ? 'active' : '')}>
+    <NavLink to={to} end={end} onClick={onClick} className={({ isActive }) => (isActive ? 'active' : '')}>
       <Icon />
       {label}
       {live ? <i className="nav-live" /> : null}
@@ -52,6 +53,8 @@ export function Sidebar() {
   const [boardLive, setBoardLive] = useState(false);
   const shopName = settings.business_name || 'Print Shop';
   const logoUrl = settings.business_logo_url;
+  const navOpen = useUiStore((state) => state.navOpen);
+  const closeNav = useUiStore((state) => state.closeNav);
 
   const refreshBadges = useCallback(() => {
     listJobs({ status: 'active', limit: 1, page: 1 })
@@ -84,7 +87,7 @@ export function Sidebar() {
   useSocket(onSocket);
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${navOpen ? ' open' : ''}`}>
       <div className="brand">
         <div className={`brand-mark ${logoUrl ? 'has-logo' : ''}`.trim()}>
           {logoUrl ? <img src={logoUrl} alt="" /> : initials(shopName).slice(0, 1) || 'P'}
@@ -101,11 +104,12 @@ export function Sidebar() {
             {...item}
             badge={item.badgeKey === 'jobs' ? jobBadge : null}
             live={item.to === '/board' ? boardLive : false}
+            onClick={closeNav}
           />
         ))}
         <div className="nav-section">Setup</div>
         {setup.map((item) => (
-          <NavItem key={item.to} {...item} badge={item.to === '/voice' ? voiceBadge : null} />
+          <NavItem key={item.to} {...item} badge={item.to === '/voice' ? voiceBadge : null} onClick={closeNav} />
         ))}
       </nav>
       <div className="sidebar-foot">

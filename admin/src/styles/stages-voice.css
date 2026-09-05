@@ -128,7 +128,15 @@
 .sv-page .debug-row .num{color:var(--ink-3);font-variant-numeric:tabular-nums}
 
 @media (max-width:900px){
+  .sv-page{padding:16px 14px 40px}
   .sv-page .grid2{grid-template-columns:1fr}
   .sv-page .stage-row,.sv-page .stage-head{grid-template-columns:24px 20px 1fr 90px 70px}
   .sv-page .stage-row>:nth-child(4),.sv-page .stage-row>:nth-child(5),.sv-page .stage-head>:nth-child(4),.sv-page .stage-head>:nth-child(5){display:none}
+  .sv-page .filters{flex-wrap:wrap}
+  .sv-page .filters .field{width:100%}
+  .sv-page .debug-row{grid-template-columns:1fr;gap:4px}
+}
+@media (max-width:480px){
+  .sv-page .stage-row,.sv-page .stage-head{grid-template-columns:24px 1fr}
+  .sv-page .stage-row>:nth-child(2),.sv-page .stage-head>:nth-child(2){display:none}
 }

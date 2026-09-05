@@ -94,4 +94,22 @@
 .lightbox{position:fixed;inset:0;background:rgba(22,26,31,.72);z-index:50;display:grid;place-items:center;padding:32px}
 .lightbox img{max-width:90vw;max-height:86vh;border-radius:var(--r-md);box-shadow:0 12px 40px rgba(0,0,0,.35)}
 
-@media (max-width:1100px){.job-detail .grid{grid-template-columns:1fr}.job-detail .art-grid{grid-template-columns:repeat(2,1fr)}.job-detail .steps{grid-template-columns:repeat(4,1fr)}.job-detail .steps::before,.job-detail .steps::after{display:none}}
+@media (max-width:1100px){
+  .job-detail{padding:18px 16px 40px}
+  .job-detail .grid{grid-template-columns:1fr}
+  .job-detail .art-grid{grid-template-columns:repeat(2,1fr)}
+  .job-detail .steps{grid-template-columns:repeat(4,1fr)}
+  .job-detail .steps::before,.job-detail .steps::after{display:none}
+}
+@media (max-width:768px){
+  .job-detail .head{flex-direction:column}
+  .job-detail .head .actions{margin-left:0;flex-wrap:wrap}
+  .job-detail .steps{display:flex;overflow-x:auto;gap:16px;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+  .job-detail .step{flex:0 0 72px}
+  .job-detail .stepper-foot{flex-wrap:wrap}
+  .job-detail .dl{grid-template-columns:1fr}
+  .lightbox{padding:12px}
+}
+@media (max-width:480px){
+  .job-detail .art-grid{grid-template-columns:1fr}
+}

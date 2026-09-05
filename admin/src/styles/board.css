@@ -65,3 +65,8 @@
 .nav a .nav-live{margin-left:auto;width:8px;height:8px;border-radius:50%;background:#34C46A;box-shadow:0 0 0 3px rgba(52,196,106,.25);flex:none}
 
 @media (max-width:1100px){.board-page.content{grid-template-columns:1fr}}
+@media (max-width:768px){
+  .board-page.content{padding:16px 14px 40px}
+  .board-page .status{flex-wrap:wrap}
+  .board-page .frame{aspect-ratio:4/3}
+}
