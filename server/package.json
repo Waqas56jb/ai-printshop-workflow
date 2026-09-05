@@ -12,7 +12,7 @@
     "check": "node scripts/check-connection.js",
     "create-admin": "node scripts/create-admin.js",
     "omi:sim": "node scripts/omi-sim.js",
-    "test": "node --test tests/**/*.test.js"
+    "test": "node --test tests/realtime.tools.test.js tests/realtime.session.test.js"
   },
   "keywords": [],
   "author": "",

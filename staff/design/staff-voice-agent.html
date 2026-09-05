@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice assistant · Staff</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#F2F3F0;--sheet:#FFFFFF;--ink:#161A1F;--ink-2:#4A5361;--ink-3:#8A93A1;--rule:#DDE0DB;--rule-2:#EDEFEA;--magenta:#D9247B;--magenta-2:#FBE4EF;--green:#1F9D55;--green-2:#DFF3E7;--yellow-2:#FBF3D1;--red:#D5382E;--font:'Instrument Sans',system-ui,sans-serif;--r-sm:6px;--r-md:10px;--r-lg:14px}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+  button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+  /* ===== TopNav mic button (React: components/voice-agent/MicButton.jsx) — sits left of "New job" ===== */
+  .topnav{height:58px;background:var(--sheet);border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:0 24px}
+  .mic-btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:99px;font-weight:600;font-size:13px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink)}
+  .mic-btn:hover{background:var(--paper)}
+  .mic-btn.live{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .mic-btn .pulse{width:8px;height:8px;border-radius:50%;background:var(--magenta);box-shadow:0 0 0 0 rgba(217,36,123,.5);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,36,123,.5)}70%{box-shadow:0 0 0 8px rgba(217,36,123,0)}100%{box-shadow:0 0 0 0 rgba(217,36,123,0)}}
+  .btn-primary{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:var(--r-sm);font-weight:600;font-size:13px;background:var(--magenta);color:#fff}
+
+  /* ===== Floating panel (React: components/voice-agent/VoiceAgentPanel.jsx) — bottom-right, above everything ===== */
+  .panel{position:fixed;right:24px;bottom:24px;width:380px;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-lg);box-shadow:0 24px 60px rgba(22,26,31,.22);display:flex;flex-direction:column;overflow:hidden}
+  .ph{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--rule-2)}
+  .ph .st{display:flex;align-items:center;gap:7px;font-weight:600;font-size:13.5px}
+  .ph .st i{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .ph .st.thinking i{background:var(--magenta)}
+  .ph .st.off i{background:var(--ink-3)}
+  .ph .sub{font-size:12px;color:var(--ink-3)}
+  .ph .x{margin-left:auto;width:28px;height:28px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-2)}
+  .ph .x:hover{background:var(--paper)}
+
+  /* Live waveform (React: Waveform.jsx — driven by AnalyserNode of mic stream; bars = input level, magenta when assistant speaking) */
+  .wave{display:flex;align-items:center;justify-content:center;gap:3px;height:56px;background:var(--paper);border-bottom:1px solid var(--rule-2)}
+  .wave i{width:4px;border-radius:2px;background:var(--ink);height:var(--h);animation:bar 1s ease-in-out infinite alternate}
+  .wave.assistant i{background:var(--magenta)}
+  @keyframes bar{from{transform:scaleY(.4)}to{transform:scaleY(1)}}
+  .wave i:nth-child(odd){animation-delay:.15s}.wave i:nth-child(3n){animation-delay:.3s}
+
+  /* Transcript */
+  .log{padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:300px;overflow:auto}
+  .m{display:flex;flex-direction:column;gap:3px;max-width:90%}
+  .m.user{align-self:flex-end;align-items:flex-end}
+  .m .b{padding:8px 11px;border-radius:12px;font-size:13.5px;line-height:1.4}
+  .m.user .b{background:var(--ink);color:#fff;border-bottom-right-radius:4px}
+  .m.ai .b{background:var(--paper);border-bottom-left-radius:4px}
+  .m .t{font-size:11px;color:var(--ink-3)}
+  .m .b.partial{color:var(--ink-3);font-style:italic}
+
+  /* Tool action chip (React: ToolCallCard.jsx) — shown when the model calls a function */
+  .tool{align-self:stretch;border:1px solid var(--rule);border-radius:var(--r-md);padding:9px 11px;display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;font-size:13px}
+  .tool .ic{width:26px;height:26px;border-radius:50%;background:var(--magenta-2);color:var(--magenta);display:grid;place-items:center}
+  .tool .ic svg{width:13px;height:13px}
+  .tool b{font-weight:600;display:block}
+  .tool span{font-size:12px;color:var(--ink-2)}
+  .tool .ok{font-size:11.5px;font-weight:600;color:var(--green);background:var(--green-2);padding:2px 8px;border-radius:99px}
+  .tool .wait{font-size:11.5px;font-weight:600;color:#8A6B00;background:var(--yellow-2);padding:2px 8px;border-radius:99px}
+  .tool .confirm{grid-column:1/-1;display:flex;gap:6px;margin-top:2px}
+  .tool .confirm button{height:30px;padding:0 12px;border-radius:var(--r-sm);font-weight:600;font-size:12.5px;border:1px solid var(--rule)}
+  .tool .confirm .yes{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* Footer controls */
+  .pf{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--rule-2)}
+  .pf .hint{font-size:12px;color:var(--ink-3);flex:1}
+  .pf .hint b{font-weight:500;color:var(--ink-2)}
+  .pf button{height:32px;padding:0 12px;border-radius:var(--r-sm);font-weight:600;font-size:12.5px;border:1px solid var(--rule)}
+  .pf .mute.on{background:var(--yellow-2);border-color:#F1E2A0;color:#8A6B00}
+  .pf .end{background:var(--red);color:#fff;border-color:var(--red)}
+
+  /* Tips shown before first utterance (React: shows when log is empty) */
+  .tips{padding:14px;display:flex;flex-direction:column;gap:6px}
+  .tips p{font-size:12.5px;color:var(--ink-3)}
+  .tips button{text-align:left;font-size:13px;background:var(--paper);padding:8px 11px;border-radius:var(--r-sm);color:var(--ink-2)}
+  .tips button:hover{background:var(--rule-2);color:var(--ink)}
+
+  /* Mic permission / error state */
+  .err{margin:12px 14px;padding:10px 12px;border-radius:var(--r-md);background:#FBE3E1;color:var(--red);font-size:13px;display:none}
+
+  @media (max-width:600px){.panel{right:0;left:0;bottom:0;width:auto;border-radius:var(--r-lg) var(--r-lg) 0 0}}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <!-- idle state -->
+  <button class="mic-btn"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>Talk</button>
+  <!-- live state -->
+  <button class="mic-btn live"><span class="pulse"></span>Listening…</button>
+  <button class="btn-primary">+ New job</button>
+</header>
+
+<div class="panel">
+  <div class="ph">
+    <div><div class="st"><i></i>Listening</div><div class="sub">Voice assistant · signed in as Bilal</div></div>
+    <button class="x"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+
+  <div class="wave"><i style="--h:14px"></i><i style="--h:26px"></i><i style="--h:38px"></i><i style="--h:22px"></i><i style="--h:44px"></i><i style="--h:30px"></i><i style="--h:18px"></i><i style="--h:36px"></i><i style="--h:24px"></i><i style="--h:40px"></i><i style="--h:16px"></i><i style="--h:28px"></i></div>
+
+  <div class="err">Microphone blocked — allow it in the browser address bar and try again.</div>
+
+  <div class="log">
+    <div class="m user"><div class="b">Move Sarah's job to printing</div><div class="t">10:42</div></div>
+    <div class="tool"><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span><div><b>Move stage</b><span>J-1025 · 50 T-Shirts → Printing</span></div><span class="ok">Done</span></div>
+    <div class="m ai"><div class="b">Done — J-1025 is now in Printing. It's due today.</div><div class="t">10:42</div></div>
+
+    <div class="m user"><div class="b">Add a note to the gym job, use white ink</div><div class="t">10:43</div></div>
+    <div class="tool"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><div><b>Add note</b><span>Two matches — which job?</span></div><span class="wait">Needs you</span><div class="confirm"><button class="yes">J-1023 Metro Gym</button><button>J-1021 Fit Zone</button><button>Cancel</button></div></div>
+    <div class="m ai"><div class="b">I found two gym jobs — Metro Gym or Fit Zone?</div><div class="t">10:43</div></div>
+
+    <div class="m user"><div class="b partial">Metro g…</div></div>
+  </div>
+
+  <div class="pf">
+    <div class="hint">Say <b>"stop"</b> to end · works best on Chrome</div>
+    <button class="mute">Mute</button>
+    <button class="end">End</button>
+  </div>
+</div>
+
+<!-- Empty-state tips (replace .log when there are no messages yet) -->
+<div class="panel" style="right:auto;left:24px;width:340px">
+  <div class="ph"><div><div class="st"><i></i>Listening</div><div class="sub">Voice assistant · signed in as Bilal</div></div><button class="x"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="wave"><i style="--h:8px"></i><i style="--h:10px"></i><i style="--h:8px"></i><i style="--h:12px"></i><i style="--h:8px"></i><i style="--h:10px"></i><i style="--h:8px"></i></div>
+  <div class="tips">
+    <p>Try saying</p>
+    <button>"What's due today?"</button>
+    <button>"New job for Café Nine, 120 menu cards, due Monday"</button>
+    <button>"Where is Sarah's job?"</button>
+    <button>"Move J-1025 to QC"</button>
+  </div>
+  <div class="pf"><div class="hint">Say <b>"stop"</b> to end</div><button class="mute">Mute</button><button class="end">End</button></div>
+</div>
+
+</body>
+</html>

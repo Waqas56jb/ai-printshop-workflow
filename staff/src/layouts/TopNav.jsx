@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Clock, LayoutList, Mic, Monitor, Plus, Search, Users } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { Button } from '../components/ui/Button.jsx';
+import { MicButton } from '../components/voice-agent/MicButton.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useSocket } from '../hooks/useSocket.js';
 import { getOmiSetupStatus, listPendingVoice } from '../services/today.service.js';
@@ -16,7 +17,7 @@ const links = [
   { to: '/board', label: 'Board', icon: Monitor },
 ];
 
-export function TopNav({ onNewJob }) {
+export function TopNav({ onNewJob, voice }) {
   const { profile, logout } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -139,6 +140,11 @@ export function TopNav({ onNewJob }) {
         <span className="dot"></span>
         {connected ? 'OMI on' : omi?.configured ? 'OMI ready' : 'OMI off'}
       </div>
+      <MicButton
+        hidden={!voice?.enabled}
+        status={voice?.status || 'off'}
+        onToggle={voice?.onToggle}
+      />
       <Button onClick={onNewJob}>
         <Plus />
         New job

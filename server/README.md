@@ -133,6 +133,14 @@ All JSON responses: `{ success, data, message }` unless noted.
 | PATCH | `/api/voice/:id/confirm` | admin+staff | | Execute a pending command |
 | PATCH | `/api/voice/:id/reject` | admin+staff | | Reject a pending command |
 
+### Realtime voice (staff)
+
+| Method | Path | Auth | Body | Description |
+|--------|------|------|------|-------------|
+| GET | `/api/realtime/config` | admin+staff | | `{ enabled, voice, model }` |
+| POST | `/api/realtime/session` | admin+staff | | Ephemeral OpenAI Realtime client secret. Rate-limited 10/min per user. Never returns `OPENAI_API_KEY`. |
+| POST | `/api/realtime/tool` | admin+staff | `{ name, arguments }` | Run a shop tool (same actions as OMI/voice). Writes `voice_commands` with `source: realtime`. |
+
 ### OMI
 
 | Method | Path | Auth | Description |

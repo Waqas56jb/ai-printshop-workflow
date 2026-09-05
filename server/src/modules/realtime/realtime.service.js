@@ -6,6 +6,7 @@ import * as jobsService from '../jobs/jobs.service.js';
 import { executeTool, toolSchemas } from './realtime.tools.js';
 
 const SESSION_URL = 'https://api.openai.com/v1/realtime/sessions';
+const CLIENT_SECRETS_URL = 'https://api.openai.com/v1/realtime/client_secrets';
 
 function todayLabel() {
   return new Date().toLocaleDateString('en-GB', {
@@ -92,33 +93,64 @@ export async function createSession(user, fetchImpl = fetch, loaders = {}) {
   ]);
   const model = env.REALTIME_MODEL || 'gpt-4o-realtime-preview';
   const voice = settings.voice_agent_voice || 'alloy';
-  const body = {
+  const instructions = buildInstructions({
+    shopName: settings.business_name,
+    callerName: user?.profile?.full_name || user?.email,
+    role: user?.role,
+    stages,
+    jobs,
+  });
+  const sessionFields = {
     model,
     voice,
     modalities: ['audio', 'text'],
     input_audio_transcription: { model: 'whisper-1' },
     turn_detection: { type: 'server_vad', silence_duration_ms: 600 },
-    instructions: buildInstructions({
-      shopName: settings.business_name,
-      callerName: user?.profile?.full_name || user?.email,
-      role: user?.role,
-      stages,
-      jobs,
-    }),
+    instructions,
     tools: toolSchemas,
     tool_choice: 'auto',
   };
-
-  const response = await fetchImpl(SESSION_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+  const gaBody = {
+    session: {
+      type: 'realtime',
+      model,
+      instructions,
+      tools: toolSchemas,
+      tool_choice: 'auto',
+      audio: {
+        input: {
+          transcription: { model: 'whisper-1' },
+          turn_detection: { type: 'server_vad', silence_duration_ms: 600 },
+        },
+        output: { voice },
+      },
     },
-    body: JSON.stringify(body),
-  });
+  };
 
-  const payload = await response.json().catch(() => ({}));
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (user?.id) {
+    headers['OpenAI-Safety-Identifier'] = `printshop-${user.id}`;
+  }
+
+  let response = await fetchImpl(SESSION_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(sessionFields),
+  });
+  let payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    response = await fetchImpl(CLIENT_SECRETS_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(gaBody),
+    });
+    payload = await response.json().catch(() => ({}));
+  }
+
   if (!response.ok) {
     throw new ApiError(502, payload.error?.message || 'Could not start a realtime session');
   }
@@ -126,14 +158,14 @@ export async function createSession(user, fetchImpl = fetch, loaders = {}) {
   const clientSecret =
     typeof payload.client_secret === 'string'
       ? payload.client_secret
-      : payload.client_secret?.value || '';
+      : payload.client_secret?.value || payload.value || '';
   if (!clientSecret) {
     throw new ApiError(502, 'Realtime session did not return a client secret');
   }
 
   return {
     client_secret: clientSecret,
-    model: payload.model || model,
+    model: payload.model || payload.session?.model || model,
     expires_at: payload.client_secret?.expires_at || payload.expires_at || null,
   };
 }

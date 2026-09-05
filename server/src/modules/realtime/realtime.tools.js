@@ -117,6 +117,7 @@ function compactJob(job) {
     title: job.title,
     customer_name: job.customer_name || job.customer?.name || null,
     stage: job.stage?.name || job.stage_name || null,
+    stage_id: job.stage_id || null,
     due_date: job.due_date || null,
   };
 }

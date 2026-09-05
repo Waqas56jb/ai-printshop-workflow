@@ -61,7 +61,7 @@ export function VoiceAgentPanel({
                 key={row.id}
                 tool={row.tool}
                 onPick={onPickJob}
-                onCancel={onClose}
+                onCancel={() => onTip?.('cancel')}
               />
             ) : (
               <div key={row.id} className={`m ${row.role === 'user' ? 'user' : 'ai'}`}>

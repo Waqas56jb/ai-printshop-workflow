@@ -1,16 +1,23 @@
-# React + Vite
+# Staff panel
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Vite app on port **5174**.
 
-Currently, two official plugins are available:
+```bash
+cd staff
+cp .env.example .env
+npm install
+npm run dev
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+`VITE_API_URL` should point at the server (`http://localhost:5000`).
 
-## React Compiler
+## Voice assistant
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The **Talk** button (left of New job) starts an OpenAI Realtime speech-to-speech session in the browser (WebRTC). The server mints an ephemeral client secret via `POST /api/realtime/session`; the API key never reaches the browser.
 
-## Expanding the Oxlint configuration
+- `VITE_REALTIME_ENABLED` defaults to `true`. Set `false` to hide Talk.
+- `getUserMedia` needs **HTTPS or localhost**.
+- Works best in Chrome. Allow the microphone when asked.
+- Say **stop** or press End to close the session.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+The assistant calls the same shop tools as OMI (due today, move stage, notes, create job). Confirmations and job-choice chips appear in the floating panel.

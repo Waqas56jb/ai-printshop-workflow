@@ -6,7 +6,7 @@ function jobs() {
   return [
     { id: 'j1', job_number: 'J-1025', title: '50 T-Shirts', customer_name: 'Sarah', stage_id: 's1', due_date: '2026-09-05' },
     { id: 'j2', job_number: 'J-1023', title: 'Banners', customer_name: 'Metro Gym', stage_id: 's1', due_date: '2026-09-06' },
-    { id: 'j3', job_number: 'J-1021', title: 'Flyers', customer_name: 'Fit Zone', stage_id: 's1', due_date: '2026-09-06' },
+    { id: 'j3', job_number: 'J-1021', title: 'Flyers', customer_name: 'Fit Zone Gym', stage_id: 's1', due_date: '2026-09-06' },
   ];
 }
 

@@ -1,0 +1,53 @@
+.mic-btn svg,.va-panel svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mic-btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:99px;font-weight:600;font-size:13px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink)}
+.mic-btn:hover{background:var(--paper)}
+.mic-btn.live{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mic-btn .pulse{width:8px;height:8px;border-radius:50%;background:var(--magenta);box-shadow:0 0 0 0 rgba(217,36,123,.5);animation:va-pulse 1.6s infinite}
+@keyframes va-pulse{0%{box-shadow:0 0 0 0 rgba(217,36,123,.5)}70%{box-shadow:0 0 0 8px rgba(217,36,123,0)}100%{box-shadow:0 0 0 0 rgba(217,36,123,0)}}
+
+.va-panel{position:fixed;right:24px;bottom:24px;width:380px;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-lg);box-shadow:0 24px 60px rgba(22,26,31,.22);display:flex;flex-direction:column;overflow:hidden;z-index:40}
+.va-panel .ph{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--rule-2)}
+.va-panel .st{display:flex;align-items:center;gap:7px;font-weight:600;font-size:13.5px}
+.va-panel .st i{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.va-panel .st.thinking i{background:var(--magenta)}
+.va-panel .st.off i{background:var(--ink-3)}
+.va-panel .sub{font-size:12px;color:var(--ink-3)}
+.va-panel .x{margin-left:auto;width:28px;height:28px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-2)}
+.va-panel .x:hover{background:var(--paper)}
+.va-panel .wave{display:flex;align-items:center;justify-content:center;gap:3px;height:56px;background:var(--paper);border-bottom:1px solid var(--rule-2)}
+.va-panel .wave i{width:4px;border-radius:2px;background:var(--ink);height:var(--h);animation:va-bar 1s ease-in-out infinite alternate}
+.va-panel .wave.assistant i{background:var(--magenta)}
+@keyframes va-bar{from{transform:scaleY(.4)}to{transform:scaleY(1)}}
+.va-panel .wave i:nth-child(odd){animation-delay:.15s}
+.va-panel .wave i:nth-child(3n){animation-delay:.3s}
+.va-panel .log{padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:300px;overflow:auto}
+.va-panel .m{display:flex;flex-direction:column;gap:3px;max-width:90%}
+.va-panel .m.user{align-self:flex-end;align-items:flex-end}
+.va-panel .m .b{padding:8px 11px;border-radius:12px;font-size:13.5px;line-height:1.4}
+.va-panel .m.user .b{background:var(--ink);color:#fff;border-bottom-right-radius:4px}
+.va-panel .m.ai .b{background:var(--paper);border-bottom-left-radius:4px}
+.va-panel .m .t{font-size:11px;color:var(--ink-3)}
+.va-panel .m .b.partial{color:var(--ink-3);font-style:italic}
+.va-panel .tool{align-self:stretch;border:1px solid var(--rule);border-radius:var(--r-md);padding:9px 11px;display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;font-size:13px}
+.va-panel .tool .ic{width:26px;height:26px;border-radius:50%;background:var(--magenta-2);color:var(--magenta);display:grid;place-items:center}
+.va-panel .tool .ic svg{width:13px;height:13px}
+.va-panel .tool b{font-weight:600;display:block}
+.va-panel .tool span{font-size:12px;color:var(--ink-2)}
+.va-panel .tool .ok{font-size:11.5px;font-weight:600;color:var(--green);background:var(--green-2);padding:2px 8px;border-radius:99px}
+.va-panel .tool .wait{font-size:11.5px;font-weight:600;color:#8A6B00;background:var(--yellow-2);padding:2px 8px;border-radius:99px}
+.va-panel .tool .confirm{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.va-panel .tool .confirm button{height:30px;padding:0 12px;border-radius:var(--r-sm);font-weight:600;font-size:12.5px;border:1px solid var(--rule)}
+.va-panel .tool .confirm .yes{background:var(--ink);color:#fff;border-color:var(--ink)}
+.va-panel .pf{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--rule-2)}
+.va-panel .pf .hint{font-size:12px;color:var(--ink-3);flex:1}
+.va-panel .pf .hint b{font-weight:500;color:var(--ink-2)}
+.va-panel .pf button{height:32px;padding:0 12px;border-radius:var(--r-sm);font-weight:600;font-size:12.5px;border:1px solid var(--rule)}
+.va-panel .pf .mute.on{background:var(--yellow-2);border-color:#F1E2A0;color:#8A6B00}
+.va-panel .pf .end{background:var(--red);color:#fff;border-color:var(--red)}
+.va-panel .tips{padding:14px;display:flex;flex-direction:column;gap:6px}
+.va-panel .tips p{font-size:12.5px;color:var(--ink-3)}
+.va-panel .tips button{text-align:left;font-size:13px;background:var(--paper);padding:8px 11px;border-radius:var(--r-sm);color:var(--ink-2)}
+.va-panel .tips button:hover{background:var(--rule-2);color:var(--ink)}
+.va-panel .err{margin:12px 14px;padding:10px 12px;border-radius:var(--r-md);background:#FBE3E1;color:var(--red);font-size:13px;display:none}
+.va-panel .err.show{display:block}
+@media (max-width:600px){.va-panel{right:0;left:0;bottom:0;width:auto;border-radius:var(--r-lg) var(--r-lg) 0 0}}
