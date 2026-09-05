@@ -1,0 +1,97 @@
+.job-detail{padding:22px 28px 40px;display:flex;flex-direction:column;gap:16px;max-width:1400px}
+.job-detail .crumb{font-size:13px;color:var(--ink-3);display:flex;gap:6px;align-items:center}
+.job-detail .crumb a{color:var(--ink-2)}
+.job-detail .head{display:flex;align-items:flex-start;gap:16px}
+.job-detail .head h1{font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.2;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.job-detail .head .meta{color:var(--ink-2);font-size:13.5px;margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
+.job-detail .head .meta b{font-weight:500;color:var(--ink)}
+.job-detail .head .actions{margin-left:auto;display:flex;gap:8px;position:relative}
+.job-detail .prio-pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--yellow-2);color:#8A6B00}
+.job-detail .prio-pill.urgent{background:var(--red-2);color:var(--red)}
+.job-detail .btn{padding:0 14px;height:36px}
+.job-detail .btn-sm{height:30px;padding:0 10px;font-size:12.5px}
+.job-detail .btn-danger{color:var(--red)}
+.job-detail .icon-btn{width:30px;height:30px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-2)}
+.job-detail .icon-btn:hover{background:var(--paper);color:var(--ink)}
+.job-detail .panel-head{padding:13px 18px}
+.job-detail .panel-head .sub{font-size:12.5px;color:var(--ink-3);font-weight:400;margin-left:8px}
+.job-detail .more-menu{position:absolute;right:0;top:40px;z-index:20;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-md);padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(22,26,31,.12)}
+.job-detail .more-menu button{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500}
+.job-detail .more-menu button:hover{background:var(--paper)}
+
+.job-detail .stepper{background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-lg);padding:18px 22px 16px}
+.job-detail .steps{display:grid;grid-template-columns:repeat(var(--n,7),1fr);position:relative}
+.job-detail .steps::before{content:"";position:absolute;left:7%;right:7%;top:11px;height:2px;background:var(--rule)}
+.job-detail .steps::after{content:"";position:absolute;left:7%;width:var(--progress,0%);top:11px;height:2px;background:var(--ink)}
+.job-detail .step{position:relative;text-align:center;padding-top:34px;font-size:12.5px;color:var(--ink-3);font-weight:500}
+.job-detail .step::before{content:"";position:absolute;top:4px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:var(--sheet);border:2px solid var(--rule)}
+.job-detail .step.done{color:var(--ink-2)}
+.job-detail .step.done::before{background:var(--ink);border-color:var(--ink)}
+.job-detail .step.now{color:var(--ink);font-weight:600}
+.job-detail .step.now::before{background:var(--magenta);border-color:var(--magenta);box-shadow:0 0 0 4px var(--magenta-2)}
+.job-detail .step time{display:block;font-size:11.5px;font-weight:400;color:var(--ink-3);margin-top:1px}
+.job-detail .stepper-foot{display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--rule-2)}
+.job-detail .stepper-foot .t{font-size:13px;color:var(--ink-2);flex:1}
+
+.job-detail .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;align-items:start}
+.job-detail .col{display:flex;flex-direction:column;gap:16px}
+
+.job-detail .art-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 18px}
+.job-detail .art{border:1px solid var(--rule);border-radius:var(--r-md);overflow:hidden;background:var(--paper)}
+.job-detail .art .thumb{aspect-ratio:4/3;background:repeating-conic-gradient(#E6E8E4 0 25%,#F2F3F0 0 50%) 0 0/16px 16px;display:grid;place-items:center;color:var(--ink-3);font-size:12px;position:relative;overflow:hidden}
+.job-detail .art .thumb img{width:100%;height:100%;object-fit:cover}
+.job-detail .art .thumb .v{position:absolute;top:8px;left:8px;background:var(--ink);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px}
+.job-detail .art .thumb .ok{position:absolute;top:8px;right:8px;background:var(--green);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px;display:flex;align-items:center;gap:4px}
+.job-detail .art .thumb .ok svg{width:11px;height:11px;stroke-width:3}
+.job-detail .art .info{padding:9px 11px;background:var(--sheet)}
+.job-detail .art .name{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job-detail .art .by{font-size:11.5px;color:var(--ink-3)}
+.job-detail .art .ops{display:flex;gap:2px;margin-top:6px}
+.job-detail .art .ops button{font-size:12px;font-weight:500;color:var(--ink-2);padding:3px 7px;border-radius:4px}
+.job-detail .art .ops button:hover{background:var(--paper);color:var(--ink)}
+.job-detail .art .ops .approve{color:var(--green)}
+.job-detail .art.add{border-style:dashed;display:grid;place-items:center;min-height:180px;color:var(--ink-2);font-size:13px;text-align:center;cursor:pointer}
+.job-detail .art.add b{color:var(--magenta);display:block}
+
+.job-detail .dl{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;padding:6px 18px 14px}
+.job-detail .dl div{padding:9px 0;border-bottom:1px solid var(--rule-2)}
+.job-detail .dl dt{font-size:12px;color:var(--ink-3)}
+.job-detail .dl dd{font-weight:500;margin-top:1px}
+.job-detail .dl .wide{grid-column:1/-1}
+.job-detail .dl dd.pre{white-space:pre-line;font-weight:400;color:var(--ink-2)}
+
+.job-detail .note{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:12px 18px;border-bottom:1px solid var(--rule-2);position:relative}
+.job-detail .note .avatar{width:26px;height:26px;font-size:11px;background:var(--paper);color:var(--ink)}
+.job-detail .note:last-of-type{border-bottom:0}
+.job-detail .note .who{font-size:12.5px;color:var(--ink-3)}
+.job-detail .note .who b{color:var(--ink);font-weight:500}
+.job-detail .note .voice{display:inline-flex;align-items:center;gap:4px;color:var(--magenta);font-weight:500;margin-left:6px}
+.job-detail .note .voice svg{width:11px;height:11px}
+.job-detail .note p{margin-top:2px}
+.job-detail .note .del{position:absolute;right:12px;top:12px;opacity:0;font-size:12px;color:var(--red);font-weight:500}
+.job-detail .note:hover .del{opacity:1}
+.job-detail .compose{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--rule-2);background:#FAFBF9}
+.job-detail .compose textarea{flex:1;border:1px solid var(--rule);border-radius:var(--r-sm);padding:8px 11px;min-height:38px;resize:none;outline:0;background:var(--sheet);font:inherit}
+.job-detail .compose textarea:focus{border-color:var(--ink)}
+
+.job-detail .act{display:grid;grid-template-columns:18px 1fr;gap:12px;padding:0 18px}
+.job-detail .act .ln{position:relative}
+.job-detail .act .ln::before{content:"";position:absolute;top:0;bottom:0;left:8px;width:2px;background:var(--rule-2)}
+.job-detail .act .ln i{position:absolute;top:16px;left:4px;width:10px;height:10px;border-radius:50%;background:var(--sheet);border:2px solid var(--ink-3)}
+.job-detail .act .ln i.m{border-color:var(--magenta);background:var(--magenta)}
+.job-detail .act .tx{padding:12px 0;border-bottom:1px solid var(--rule-2);font-size:13px}
+.job-detail .act:last-child .tx{border-bottom:0}
+.job-detail .act .tx b{font-weight:500}
+.job-detail .act .tx span{color:var(--ink-3);font-size:12px;display:block}
+.job-detail .act .tx q{color:var(--ink-2);font-style:italic}
+
+.job-detail .cust{padding:14px 18px;display:flex;gap:12px;align-items:center}
+.job-detail .cust .avatar{width:38px;height:38px;font-size:13px;background:var(--paper);color:var(--ink)}
+.job-detail .cust .n{font-weight:600}
+.job-detail .cust .c{font-size:12.5px;color:var(--ink-2)}
+.job-detail .cust a{margin-left:auto;font-size:13px;color:var(--magenta);font-weight:500}
+
+.lightbox{position:fixed;inset:0;background:rgba(22,26,31,.72);z-index:50;display:grid;place-items:center;padding:32px}
+.lightbox img{max-width:90vw;max-height:86vh;border-radius:var(--r-md);box-shadow:0 12px 40px rgba(0,0,0,.35)}
+
+@media (max-width:1100px){.job-detail .grid{grid-template-columns:1fr}.job-detail .art-grid{grid-template-columns:repeat(2,1fr)}.job-detail .steps{grid-template-columns:repeat(4,1fr)}.job-detail .steps::before,.job-detail .steps::after{display:none}}

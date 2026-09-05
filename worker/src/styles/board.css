@@ -1,0 +1,106 @@
+/* TV board is read from 3–5 m away: big type, dark theme by default, no hover states, no scrollbars. Designed for 1920×1080; scales with vw. */
+:root{
+  --bg:#0F1216; --col:#161B21; --card:#1E242C; --card-2:#252C35;
+  --text:#F2F3F0; --text-2:#B4BCC7; --text-3:#7C8593; --line:rgba(255,255,255,.07);
+  --magenta:#D9247B; --red:#F0524A; --amber:#F2C230; --green:#34C46A; --cyan:#22B8DC;
+  --font:'Instrument Sans',system-ui,sans-serif;
+  --r:clamp(8px,.7vw,14px);
+  --u:clamp(10px,1vw,20px);          /* base spacing unit */
+}
+/* Light theme (settings.board_theme = light) */
+[data-theme="light"]{--bg:#F2F3F0;--col:#E8EAE5;--card:#FFFFFF;--card-2:#F7F8F5;--text:#161A1F;--text-2:#4A5361;--text-3:#8A93A1;--line:rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;overflow:hidden}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:clamp(13px,1.1vw,20px);line-height:1.35;-webkit-font-smoothing:antialiased;cursor:none}
+html.preview,html.preview body{cursor:auto}
+*::-webkit-scrollbar{display:none}
+*{scrollbar-width:none}
+.num{font-variant-numeric:tabular-nums}
+svg{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ===== HEADER (React: components/BoardHeader.jsx) ===== */
+.board{display:grid;grid-template-rows:auto 1fr auto;height:100vh;padding:calc(var(--u)*1.2) calc(var(--u)*1.6) var(--u)}
+.head{display:flex;align-items:center;gap:calc(var(--u)*1.2);padding-bottom:var(--u)}
+.brand{display:flex;align-items:center;gap:.6em}
+.brand-mark{width:2em;height:2em;border-radius:.5em;background:var(--magenta);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.1em;overflow:hidden}
+.brand-mark img{width:100%;height:100%;object-fit:cover}
+.brand b{font-weight:600;font-size:1.25em;letter-spacing:-.01em}
+.clock{margin-left:auto;text-align:right}
+.clock .t{font-size:2.2em;font-weight:700;letter-spacing:-.03em;line-height:1}
+.clock .d{color:var(--text-2);font-size:.95em}
+.summary{display:flex;gap:calc(var(--u)*1.4);padding:0 calc(var(--u)*1.4);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.sum{display:flex;flex-direction:column;line-height:1.1}
+.sum b{font-size:1.7em;font-weight:700;letter-spacing:-.02em}
+.sum span{color:var(--text-2);font-size:.85em}
+.sum.warn b{color:var(--red)}
+.live{display:flex;align-items:center;gap:.5em;color:var(--green);font-weight:500;font-size:.9em}
+.live i{width:.55em;height:.55em;border-radius:50%;background:var(--green);box-shadow:0 0 0 .3em rgba(52,196,106,.2)}
+.live.off{color:var(--text-3)}.live.off i{background:var(--text-3);box-shadow:none}
+
+/* ===== COLUMNS (React: components/StageColumn.jsx) — one per stage with show_on_board ===== */
+.cols{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:var(--u);min-height:0}
+.col{background:var(--col);border-radius:var(--r);display:flex;flex-direction:column;min-height:0;border-top:.35em solid var(--stage)}
+.col-head{display:flex;align-items:center;gap:.5em;padding:.7em .9em .5em}
+.col-head h2{font-size:1.05em;font-weight:600}
+.col-head .n{margin-left:auto;background:var(--stage);color:#fff;font-weight:700;font-size:.85em;min-width:1.9em;height:1.9em;padding:0 .5em;border-radius:99px;display:grid;place-items:center}
+.col-head .n.zero{background:var(--card-2);color:var(--text-3)}
+.cards{display:flex;flex-direction:column;gap:.55em;padding:0 .6em .6em;overflow:hidden;flex:1}
+.col.empty .cards::after{content:"Nothing here";color:var(--text-3);font-size:.9em;text-align:center;padding:1.6em 0;border:1px dashed var(--line);border-radius:var(--r)}
+.more{color:var(--text-3);font-size:.85em;text-align:center;padding:.3em}
+
+/* ===== JOB CARD (React: components/JobCard.jsx) ===== */
+.card{background:var(--card);border-radius:var(--r);padding:.7em .8em;display:flex;flex-direction:column;gap:.3em;position:relative;border-left:.3em solid transparent}
+.card .l1{display:flex;align-items:baseline;gap:.5em}
+.card .jn{font-weight:700;font-size:1.05em}
+.card .cust{color:var(--text-2);font-size:.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .title{font-weight:500;font-size:1em;line-height:1.25}
+.card .l3{display:flex;align-items:center;gap:.6em;color:var(--text-3);font-size:.85em;margin-top:.15em}
+.card .qty{font-weight:600;color:var(--text-2)}
+.card .due{margin-left:auto;font-weight:600;color:var(--text-2)}
+.card.today{border-left-color:var(--amber)}
+.card.today .due{color:var(--amber)}
+.card.over{border-left-color:var(--red)}
+.card.over .due{color:var(--red)}
+.card.over.flash{animation:flash 2.4s ease-in-out infinite}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(240,82,74,0)}50%{box-shadow:0 0 0 .25em rgba(240,82,74,.45)}}
+.card .prio{position:absolute;top:.7em;right:.8em;font-size:.72em;font-weight:700;padding:.15em .55em;border-radius:99px;letter-spacing:.02em}
+.prio.urgent{background:var(--red);color:#fff}.prio.high{background:var(--amber);color:#1a1300}
+.card .who{width:1.6em;height:1.6em;border-radius:50%;background:var(--card-2);color:var(--text-2);font-size:.75em;font-weight:600;display:grid;place-items:center}
+.card .art{display:inline-flex;align-items:center;gap:.3em}
+.card .art.ok{color:var(--green)}
+.card .art.no{color:var(--text-3)}
+/* card just changed (socket event) — one highlight then settles */
+.card.moved{animation:moved 1.8s ease-out 1}
+@keyframes moved{0%{background:rgba(217,36,123,.35);transform:scale(1.02)}100%{background:var(--card);transform:none}}
+/* large card size (settings.board_card_size = large) */
+[data-size="large"] .card{padding:.9em 1em;gap:.4em}
+[data-size="large"] .card .jn{font-size:1.25em}
+[data-size="large"] .card .title{font-size:1.15em}
+
+/* ===== FOOTER: last voice action ticker (React: components/VoiceTicker.jsx) ===== */
+.foot{display:flex;align-items:center;gap:var(--u);padding-top:var(--u);color:var(--text-2);font-size:.9em}
+.tick{display:flex;align-items:center;gap:.6em;background:var(--col);border-radius:99px;padding:.45em 1em .45em .6em}
+.tick .mic{width:1.7em;height:1.7em;border-radius:50%;background:var(--magenta);color:#fff;display:grid;place-items:center}
+.tick q{color:var(--text-3);font-style:italic}
+.tick b{color:var(--text);font-weight:500}
+.foot .r{margin-left:auto;display:flex;gap:1.2em;color:var(--text-3)}
+.foot .r span{display:flex;align-items:center;gap:.4em}
+.foot .r i{width:.9em;height:.35em;border-radius:99px;display:inline-block}
+
+/* ===== STATES (React: BoardPage.jsx) ===== */
+.overlay{position:fixed;inset:0;background:var(--bg);display:none;place-items:center;text-align:center;padding:2em}
+.overlay.show{display:grid}
+.overlay h1{font-size:2em;font-weight:700;letter-spacing:-.02em}
+.overlay p{color:var(--text-2);margin-top:.4em;font-size:1.1em}
+.overlay .mark{width:3em;height:3em;border-radius:.8em;background:var(--magenta);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.6em;margin:0 auto 1em}
+.offline-banner{position:fixed;top:var(--u);left:50%;transform:translateX(-50%);z-index:20;background:var(--col);color:var(--text-2);border:1px solid var(--line);border-radius:99px;padding:.45em 1.1em;font-weight:500;font-size:.9em}
+
+@media (prefers-reduced-motion:reduce){.card.over.flash,.card.moved{animation:none}}
+@media (max-width:1100px){
+  html,body,#root{overflow:auto;height:auto}
+  .board{height:auto;min-height:100vh}
+  .summary{display:none}
+  .cols{grid-auto-flow:row;grid-auto-columns:unset;grid-template-columns:repeat(2,1fr);overflow:visible;min-height:auto}
+  .col{min-height:auto}
+  .cards{overflow:visible}
+}

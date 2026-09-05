@@ -1,0 +1,22 @@
+:root{
+  --paper:#F2F3F0;        /* app background — uncoated paper */
+  --sheet:#FFFFFF;        /* cards / panels */
+  --ink:#161A1F;          /* primary text + sidebar */
+  --ink-2:#4A5361;        /* secondary text */
+  --ink-3:#8A93A1;        /* muted text */
+  --rule:#DDE0DB;         /* borders */
+  --rule-2:#EDEFEA;       /* faint borders */
+  --magenta:#D9247B;      /* primary action (CMYK M) */
+  --magenta-2:#FBE4EF;
+  --cyan:#0AA3C7;         /* info */
+  --cyan-2:#E0F4F9;
+  --yellow:#E8B90C;       /* warning (CMYK Y) */
+  --yellow-2:#FBF3D1;
+  --green:#1F9D55;
+  --green-2:#DFF3E7;
+  --red:#D5382E;
+  --red-2:#FBE3E1;
+  --font:'Instrument Sans',system-ui,sans-serif;
+  --r-sm:6px; --r-md:10px; --r-lg:14px;
+  --sidebar-w:240px;
+}
