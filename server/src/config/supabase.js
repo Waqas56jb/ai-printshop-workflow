@@ -3,10 +3,27 @@ import { env } from './env.js';
 import { ApiError } from '../utils/ApiError.js';
 import { logger } from '../utils/logger.js';
 
+// Serverless (Vercel Node 20) has no native WebSocket. This API only uses REST/auth.
+class ClosedWebSocket {
+  constructor() {
+    this.readyState = 3;
+    this.binaryType = 'blob';
+    this.protocol = '';
+    this.url = '';
+  }
+  close() {}
+  send() {}
+  addEventListener() {}
+  removeEventListener() {}
+}
+
 export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
+  },
+  realtime: {
+    transport: typeof globalThis.WebSocket === 'function' ? globalThis.WebSocket : ClosedWebSocket,
   },
 });
 
