@@ -1,19 +1,32 @@
 import { useCallback, useEffect, useState } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddStageRow } from '../../components/stages/AddStageRow.jsx';
 import { BoardPreview } from '../../components/stages/BoardPreview.jsx';
 import { StageList } from '../../components/stages/StageList.jsx';
+import { ConfirmDialog } from '../../components/staff/ConfirmDialog.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { createStage, deleteStage, getBoard, listJobs, listStages, reorderStages, updateStage } from '../../services/jobs.service.js';
+import { Spinner } from '../../components/ui/Spinner.jsx';
+import {
+  createStage,
+  deleteStage,
+  getBoard,
+  listJobs,
+  listStages,
+  reorderStages,
+  updateStage,
+} from '../../services/jobs.service.js';
 
 export default function StagesPage() {
   const [stages, setStages] = useState([]);
   const [counts, setCounts] = useState({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [menuId, setMenuId] = useState(null);
+  const [busyKey, setBusyKey] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const load = useCallback(async () => {
     const [rows, board, completed] = await Promise.all([
@@ -34,7 +47,10 @@ export default function StagesPage() {
   }, []);
 
   useEffect(() => {
-    load().catch((error) => toast(error.response?.data?.message || 'Failed to load stages'));
+    setLoading(true);
+    load()
+      .catch((error) => toast.error(error.response?.data?.message || 'Failed to load stages'))
+      .finally(() => setLoading(false));
   }, [load]);
 
   useEffect(() => {
@@ -60,16 +76,18 @@ export default function StagesPage() {
     setSaving(true);
     try {
       await reorderStages(stages.map((stage) => stage.id));
-      toast('Stage order saved');
+      toast.success('Stage order saved');
       setDirty(false);
     } catch (error) {
-      toast(error.response?.data?.message || 'Could not save order');
+      toast.error(error.response?.data?.message || 'Could not save order');
     } finally {
       setSaving(false);
     }
   }
 
   async function handlePatch(id, payload) {
+    const key = `${id}:${Object.keys(payload).join(',')}`;
+    setBusyKey(key);
     try {
       const updated = await updateStage(id, payload);
       setStages((current) =>
@@ -81,29 +99,49 @@ export default function StagesPage() {
         })
       );
       setMenuId(null);
+      if (payload.name) toast.success('Stage renamed');
+      else if (payload.color) toast.success('Color updated');
+      else if (payload.aliases) toast.success('Voice aliases updated');
+      else if (payload.show_on_board !== undefined) {
+        toast.success(payload.show_on_board ? 'Shown on board' : 'Hidden from board');
+      } else if (payload.is_default) toast.success('Default stage updated');
+      else if (payload.is_final) toast.success('Completion stage updated');
+      else toast.success('Stage updated');
     } catch (error) {
-      toast(error.response?.data?.message || 'Could not update stage');
+      toast.error(error.response?.data?.message || 'Could not update stage');
+    } finally {
+      setBusyKey('');
     }
   }
 
-  async function handleDelete(stage) {
-    if (!window.confirm(`Delete stage “${stage.name}”?`)) return;
+  async function handleDelete() {
+    const stage = pendingDelete;
+    if (!stage) return;
+    setBusyKey(`${stage.id}:delete`);
     try {
       await deleteStage(stage.id);
       setStages((current) => current.filter((item) => item.id !== stage.id));
-      toast('Stage deleted');
+      setPendingDelete(null);
+      toast.success(`“${stage.name}” deleted`);
     } catch (error) {
-      toast(error.response?.data?.message || 'Could not delete stage');
+      toast.error(error.response?.data?.message || 'Could not delete stage');
+      throw error;
+    } finally {
+      setBusyKey('');
     }
   }
 
   async function handleAdd(payload) {
+    setBusyKey('add');
     try {
       const created = await createStage(payload);
       setStages((current) => [...current, created]);
-      toast('Stage added');
+      toast.success(`“${created.name || payload.name}” added`);
     } catch (error) {
-      toast(error.response?.data?.message || 'Could not add stage');
+      toast.error(error.response?.data?.message || 'Could not add stage');
+      throw error;
+    } finally {
+      setBusyKey('');
     }
   }
 
@@ -112,37 +150,68 @@ export default function StagesPage() {
       <div className="intro">
         <div>
           <h2>Workflow stages</h2>
-          <p>Every job moves left to right through these stages. Drag to reorder. The names here are what appear on the job board and what workers say to OMI.</p>
+          <p>
+            Every job moves left to right through these stages. Drag to reorder. Names here appear on
+            the job board and what workers say to OMI.
+          </p>
         </div>
         {dirty ? (
-          <Button onClick={saveOrder} disabled={saving}>
-            {saving ? 'Saving…' : 'Save order'}
+          <Button onClick={saveOrder} disabled={saving || Boolean(busyKey)}>
+            {saving ? (
+              <>
+                <Loader2 className="spin" />
+                Saving…
+              </>
+            ) : (
+              'Save order'
+            )}
           </Button>
         ) : (
-          <Button variant="ghost" disabled style={{ opacity: 0.5 }}>
+          <Button variant="ghost" disabled className="sv-saved">
             Saved
           </Button>
         )}
       </div>
 
-      <StageList
-        stages={stages}
-        counts={counts}
-        menuId={menuId}
-        onMenu={(id) => setMenuId(id)}
-        onDragEnd={onDragEnd}
-        onPatch={handlePatch}
-        onDelete={handleDelete}
-      >
-        <AddStageRow onAdd={handleAdd} />
-      </StageList>
+      {loading ? (
+        <div className="sv-loading panel">
+          <Spinner />
+          <span>Loading stages…</span>
+        </div>
+      ) : (
+        <StageList
+          stages={stages}
+          counts={counts}
+          menuId={menuId}
+          busyKey={busyKey}
+          onMenu={(id) => setMenuId(id)}
+          onDragEnd={onDragEnd}
+          onPatch={handlePatch}
+          onDelete={(stage) => setPendingDelete(stage)}
+        >
+          <AddStageRow onAdd={handleAdd} busy={busyKey === 'add'} />
+        </StageList>
+      )}
 
-      <BoardPreview stages={stages} counts={counts} />
+      {!loading ? <BoardPreview stages={stages} counts={counts} /> : null}
 
       <div className="warn">
         <AlertTriangle />
-        <div>A stage with jobs in it can't be deleted — move its jobs first. Renaming a stage updates the board and voice aliases immediately.</div>
+        <div>
+          A stage with jobs in it can&apos;t be deleted — move its jobs first. Renaming a stage updates
+          the board and voice aliases immediately.
+        </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title={`Delete “${pendingDelete?.name || ''}”?`}
+        body="This removes the stage from the workflow. Jobs already in other stages are not affected."
+        confirmLabel="Delete stage"
+        danger
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleDelete}
+      />
     </main>
   );
 }
