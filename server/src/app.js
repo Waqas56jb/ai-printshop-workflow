@@ -17,6 +17,7 @@ import voiceRoutes from './modules/voice/voice.routes.js';
 import omiRoutes from './modules/omi/omi.routes.js';
 import settingsRoutes from './modules/settings/settings.routes.js';
 import realtimeRoutes from './modules/realtime/realtime.routes.js';
+import artifactsRoutes from './modules/artifacts/artifacts.routes.js';
 
 export function createApp() {
   const app = express();
@@ -60,6 +61,7 @@ export function createApp() {
   app.use('/api/omi', omiRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/realtime', realtimeRoutes);
+  app.use('/api', artifactsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

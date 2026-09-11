@@ -135,9 +135,10 @@ export async function deleteNote(id) {
   return data.data;
 }
 
-export async function uploadArtwork(jobId, file, onProgress) {
+export async function uploadArtwork(jobId, file, onProgress, extras = {}) {
   const form = new FormData();
   form.append('file', file);
+  if (extras.network_path) form.append('network_path', extras.network_path);
   const { data } = await api.post(`/api/jobs/${jobId}/artworks`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: (event) => {

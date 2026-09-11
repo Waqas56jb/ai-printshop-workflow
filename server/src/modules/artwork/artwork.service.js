@@ -9,6 +9,14 @@ function sanitizeFileName(name) {
   return path.basename(name).replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+function resolveNetworkPath(raw, fileName) {
+  const base = String(raw || '').trim().replace(/[\\/]+$/, '');
+  if (!base) return null;
+  const last = base.split(/[\\/]/).pop() || '';
+  if (/\.[a-z0-9]{2,8}$/i.test(last)) return base;
+  return `${base}\\${fileName}`;
+}
+
 export async function listArtworks(jobId) {
   await jobsService.getJobRow(jobId);
   return unwrap(
@@ -21,7 +29,7 @@ export async function listArtworks(jobId) {
   );
 }
 
-export async function uploadArtwork(jobId, file, userId) {
+export async function uploadArtwork(jobId, file, userId, extras = {}) {
   await jobsService.getJobRow(jobId);
   if (!file) {
     throw new ApiError(400, 'File is required');
@@ -43,24 +51,25 @@ export async function uploadArtwork(jobId, file, userId) {
 
   const { data: publicData } = supabase.storage.from('artworks').getPublicUrl(filePath);
 
-  const artwork = unwrap(
-    await supabase
-      .from('job_artworks')
-      .insert({
-        job_id: jobId,
-        file_name: file.originalname,
-        file_path: filePath,
-        file_url: publicData.publicUrl,
-        file_type: file.mimetype,
-        size_bytes: file.size,
-        version,
-        is_approved: false,
-        uploaded_by: userId,
-      })
-      .select('*')
-      .single(),
-    'Failed to save artwork'
-  );
+  const payload = {
+    job_id: jobId,
+    file_name: file.originalname,
+    file_path: filePath,
+    file_url: publicData.publicUrl,
+    file_type: file.mimetype,
+    size_bytes: file.size,
+    version,
+    is_approved: false,
+    network_path: resolveNetworkPath(extras.network_path, file.originalname),
+    uploaded_by: userId,
+  };
+  const first = await supabase.from('job_artworks').insert(payload).select('*').single();
+  if (first.error && /network_path/i.test(first.error.message || '')) {
+    delete payload.network_path;
+  }
+  const artwork = first.error && /network_path/i.test(first.error.message || '')
+    ? unwrap(await supabase.from('job_artworks').insert(payload).select('*').single(), 'Failed to save artwork')
+    : unwrap(first, 'Failed to save artwork');
 
   emitJobUpdated({ id: jobId, artwork });
   return artwork;

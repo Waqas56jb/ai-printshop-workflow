@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Avatar } from '../ui/Avatar.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Chip } from '../ui/Chip.jsx';
+import { ClientPack } from './ClientPack.jsx';
 import { deleteCustomer, updateCustomer } from '../../services/jobs.service.js';
 import { formatLastActivity, formatSinceDate } from '../../utils/date.js';
 import { formatSpent } from '../../utils/format.js';
@@ -190,6 +191,7 @@ export function CustomerPanel({ customer, loading, onEdit, onNewJob, onDeleted, 
           </Button>
         </div>
       </div>
+      <ClientPack customer={customer} onChanged={onChanged} />
     </aside>
   );
 }

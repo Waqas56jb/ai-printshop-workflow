@@ -8,7 +8,9 @@ export const list = asyncHandler(async (req, res) => {
 });
 
 export const upload = asyncHandler(async (req, res) => {
-  const artwork = await artworkService.uploadArtwork(req.params.id, req.file, req.user.id);
+  const artwork = await artworkService.uploadArtwork(req.params.id, req.file, req.user.id, {
+    network_path: req.body?.network_path,
+  });
   return sendCreated(res, artwork, 'Artwork uploaded');
 });
 

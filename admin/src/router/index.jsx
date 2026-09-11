@@ -11,11 +11,13 @@ import VoicePage from '../pages/voice/VoicePage.jsx';
 import StaffPage from '../pages/staff/StaffPage.jsx';
 import SettingsPage from '../pages/settings/SettingsPage.jsx';
 import BoardPage from '../pages/board/BoardPage.jsx';
+import ClientSharePage from '../pages/share/ClientSharePage.jsx';
 
 export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/c/:token" element={<ClientSharePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute role="admin" />}>
           <Route element={<AppLayout />}>

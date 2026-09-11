@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, FileText, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../ui/Button.jsx';
@@ -24,7 +24,12 @@ export function ArtworkGallery({ job, users = [], currentUserId, onChanged }) {
   const [lightbox, setLightbox] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [networkPath, setNetworkPath] = useState(job.customer?.network_folder || '');
   const files = [...(job.artworks || [])].sort((a, b) => (b.version || 0) - (a.version || 0));
+
+  useEffect(() => {
+    setNetworkPath(job.customer?.network_folder || '');
+  }, [job.id, job.customer?.network_folder]);
   const approved = files.find((file) => file.is_approved);
 
   async function upload(list) {
@@ -34,7 +39,7 @@ export function ArtworkGallery({ job, users = [], currentUserId, onChanged }) {
     setProgress(0);
     try {
       for (const file of selected) {
-        await uploadArtwork(job.id, file, setProgress);
+        await uploadArtwork(job.id, file, setProgress, { network_path: networkPath.trim() });
       }
       toast('Artwork uploaded');
       onChanged();
@@ -77,6 +82,12 @@ export function ArtworkGallery({ job, users = [], currentUserId, onChanged }) {
             {approved ? ` · v${approved.version} approved` : ''}
           </span>
         </h3>
+        <input
+          className="net-input"
+          placeholder="P:\\CUSTOMER FOLDERS\\…\\print-ready.pdf"
+          value={networkPath}
+          onChange={(event) => setNetworkPath(event.target.value)}
+        />
         <Button variant="ghost" className="btn-sm" onClick={() => inputRef.current?.click()}>
           <Upload />
           Upload
@@ -111,6 +122,15 @@ export function ArtworkGallery({ job, users = [], currentUserId, onChanged }) {
               </div>
               <div className="info">
                 <div className="name">{file.file_name}</div>
+                {file.network_path ? (
+                  <button
+                    type="button"
+                    className="net-path"
+                    onClick={() => navigator.clipboard.writeText(file.network_path).then(() => toast('Network path copied'))}
+                  >
+                    {file.network_path}
+                  </button>
+                ) : null}
                 <div className="by">
                   {[uploader ? firstName(uploader.full_name) : null, formatShortDate(file.created_at), sizeLabel(file.size_bytes)]
                     .filter(Boolean)

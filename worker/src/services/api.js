@@ -5,6 +5,11 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
+export async function getSharePack(token) {
+  const { data } = await api.get(`/api/share/clients/${token}`);
+  return data.data;
+}
+
 export async function getBoard(key = '') {
   const preview = new URLSearchParams(window.location.search).get('preview');
   const params = {

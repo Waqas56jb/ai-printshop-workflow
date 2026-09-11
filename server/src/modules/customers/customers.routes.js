@@ -13,6 +13,7 @@ const customerBody = z.object({
   phone: z.string().nullable().optional(),
   company: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  network_folder: z.string().nullable().optional(),
 });
 const customerPatch = customerBody.partial();
 

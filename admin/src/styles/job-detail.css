@@ -13,8 +13,17 @@
 .job-detail .btn-danger{color:var(--red)}
 .job-detail .icon-btn{width:30px;height:30px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--ink-2)}
 .job-detail .icon-btn:hover{background:var(--paper);color:var(--ink)}
-.job-detail .panel-head{padding:13px 18px}
+.job-detail .panel-head{padding:13px 18px;flex-wrap:wrap;gap:8px}
 .job-detail .panel-head .sub{font-size:12.5px;color:var(--ink-3);font-weight:400;margin-left:8px}
+.job-detail .net-input{
+  flex:1;min-width:180px;max-width:360px;height:30px;border:1px solid var(--rule);border-radius:8px;
+  padding:0 10px;font:inherit;font-size:12px;background:var(--sheet);
+}
+.job-detail .art .net-path{
+  display:block;width:100%;text-align:left;margin:4px 0 2px;font-family:ui-monospace,Consolas,monospace;
+  font-size:11px;line-height:1.35;color:#5B3FB8;background:#F4F0FF;border:1px solid #E3DAF8;
+  border-radius:6px;padding:5px 7px;word-break:break-all;cursor:pointer;
+}
 .job-detail .more-menu{position:absolute;right:0;top:40px;z-index:20;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-md);padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(22,26,31,.12)}
 .job-detail .more-menu button{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500}
 .job-detail .more-menu button:hover{background:var(--paper)}

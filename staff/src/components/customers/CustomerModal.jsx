@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
 import { createCustomer, updateCustomer } from '../../services/jobs.service.js';
 
-const empty = { name: '', company: '', phone: '', email: '', notes: '' };
+const empty = { name: '', company: '', phone: '', email: '', notes: '', network_folder: '' };
 
 export function CustomerModal({ open, customer, onClose, onSaved }) {
   const [form, setForm] = useState(empty);
@@ -20,6 +20,7 @@ export function CustomerModal({ open, customer, onClose, onSaved }) {
             phone: customer.phone || '',
             email: customer.email || '',
             notes: customer.notes || '',
+            network_folder: customer.network_folder || '',
           }
         : empty
     );
@@ -43,6 +44,7 @@ export function CustomerModal({ open, customer, onClose, onSaved }) {
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         notes: form.notes.trim() || null,
+        network_folder: form.network_folder.trim() || null,
       };
       const saved = customer ? await updateCustomer(customer.id, payload) : await createCustomer(payload);
       onSaved(saved, customer ? 'updated' : 'created');
@@ -94,6 +96,16 @@ export function CustomerModal({ open, customer, onClose, onSaved }) {
                 <input type="email" value={form.email} onChange={(event) => setField('email', event.target.value)} />
               </label>
             </div>
+          </div>
+          <div className="f">
+            <label>Store network folder</label>
+            <label className="field">
+              <input
+                value={form.network_folder}
+                onChange={(event) => setField('network_folder', event.target.value)}
+                placeholder="P:\CUSTOMER FOLDERS\AVON ATHLETICS-STEPHANIE KIESEL"
+              />
+            </label>
           </div>
           <div className="f">
             <label>Notes</label>

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { supabase, unwrap } from '../../config/supabase.js';
 import { ApiError } from '../../utils/ApiError.js';
 
@@ -127,6 +128,22 @@ export async function getCustomerDetail(id) {
   const active = jobs.filter(isActive);
   const total_spent = jobs.reduce((sum, job) => sum + Number(job.price || 0), 0);
 
+  let artifacts = [];
+  try {
+    artifacts =
+      unwrap(
+        await supabase
+          .from('customer_artifacts')
+          .select('*')
+          .eq('customer_id', id)
+          .order('folder_path', { ascending: true })
+          .order('created_at', { ascending: true }),
+        'Failed to load artifacts'
+      ) || [];
+  } catch {
+    artifacts = [];
+  }
+
   return {
     ...customer,
     stats: {
@@ -135,18 +152,24 @@ export async function getCustomerDetail(id) {
       total_spent,
     },
     jobs,
+    artifacts,
+    share_path: customer.share_token ? `/c/${customer.share_token}` : null,
   };
 }
 
 export async function createCustomer(payload, userId) {
-  return unwrap(
-    await supabase
-      .from('customers')
-      .insert({ ...payload, created_by: userId })
-      .select('*')
-      .single(),
-    'Failed to create customer'
-  );
+  const row = {
+    ...payload,
+    created_by: userId,
+    share_token: crypto.randomBytes(16).toString('hex'),
+  };
+  const first = await supabase.from('customers').insert(row).select('*').single();
+  if (first.error && /share_token|network_folder/i.test(first.error.message || '')) {
+    if (/share_token/i.test(first.error.message || '')) delete row.share_token;
+    if (/network_folder/i.test(first.error.message || '')) delete row.network_folder;
+    return unwrap(await supabase.from('customers').insert(row).select('*').single(), 'Failed to create customer');
+  }
+  return unwrap(first, 'Failed to create customer');
 }
 
 export async function updateCustomer(id, payload) {

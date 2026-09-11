@@ -55,6 +55,7 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
   const [showCombo, setShowCombo] = useState(false);
   const [files, setFiles] = useState([]);
   const [progress, setProgress] = useState({});
+  const [networkPath, setNetworkPath] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,13 +64,17 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
     let cancelled = false;
     setFiles([]);
     setProgress({});
+    setNetworkPath(job?.customer?.network_folder || prefillCustomer?.network_folder || '');
     setError('');
 
     if (job?.id) {
       setForm(formFromJob(job));
       getJob(job.id)
         .then((full) => {
-          if (!cancelled && full) setForm(formFromJob(full));
+          if (!cancelled && full) {
+            setForm(formFromJob(full));
+            if (full.customer?.network_folder) setNetworkPath(full.customer.network_folder);
+          }
         })
         .catch(() => {});
     } else if (prefillCustomer) {
@@ -141,7 +146,7 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
         for (const file of files) {
           await uploadArtwork(saved.id, file, (pct) => {
             setProgress((current) => ({ ...current, [file.name]: pct }));
-          });
+          }, { network_path: networkPath.trim() });
         }
       } catch (uploadErr) {
         onSaved(saved, job ? 'updated' : 'created');
@@ -196,6 +201,7 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
                     onClick={() => {
                       setField('customer_id', item.id);
                       setField('customer_name', item.name);
+                      if (item.network_folder) setNetworkPath(item.network_folder);
                       setShowCombo(false);
                     }}
                   >
@@ -318,6 +324,17 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
               value={form.size_details}
               onChange={(event) => setField('size_details', event.target.value)}
             />
+          </div>
+          <div className="f">
+            <label>Store network path</label>
+            <label className="field">
+              <input
+                placeholder="P:\CUSTOMER FOLDERS\AVON ATHLETICS-STEPHANIE KIESEL"
+                value={networkPath}
+                onChange={(event) => setNetworkPath(event.target.value)}
+              />
+            </label>
+            <span className="hint">Shown to the printer. The file stays on the store computer.</span>
           </div>
           <div className="f">
             <label>Artwork</label>

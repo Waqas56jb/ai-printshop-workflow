@@ -8,11 +8,13 @@ import JobDetailPage from '../pages/jobs/JobDetailPage.jsx';
 import CustomersPage from '../pages/customers/CustomersPage.jsx';
 import VoicePage from '../pages/voice/VoicePage.jsx';
 import BoardPage from '../pages/board/BoardPage.jsx';
+import ClientSharePage from '../pages/share/ClientSharePage.jsx';
 
 export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/c/:token" element={<ClientSharePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute role={['staff', 'admin']} />}>
           <Route element={<AppLayout />}>
