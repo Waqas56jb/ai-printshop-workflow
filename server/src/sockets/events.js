@@ -1,4 +1,5 @@
 import { getIO } from './index.js';
+import { invalidateBoardDisplayCache } from '../modules/board/board.service.js';
 
 function broadcast(event, payload) {
   const io = getIO();
@@ -7,6 +8,7 @@ function broadcast(event, payload) {
 }
 
 function refreshBoard() {
+  invalidateBoardDisplayCache();
   const io = getIO();
   if (!io) return;
   io.to('board').emit('board:refresh');

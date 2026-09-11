@@ -34,9 +34,11 @@
 .share .badge.approved{background:#E8F5D8;color:#3B6D12}
 .share .badge.proof{background:#FFF3C4;color:#8A6B00}
 .share .net-path{
-  display:block;width:100%;text-align:left;margin:4px 0;font-family:ui-monospace,Consolas,monospace;
-  font-size:11px;line-height:1.35;color:#5B3FB8;background:#F4F0FF;border:1px solid #E3DAF8;
-  border-radius:6px;padding:6px 8px;word-break:break-all;cursor:pointer;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;box-sizing:border-box;
+  width:100%;max-width:100%;min-width:0;margin:4px 0;padding:6px 8px;text-align:left;
+  font-family:ui-monospace,Consolas,monospace;font-size:11px;line-height:1.35;color:#5B3FB8;
+  background:#F4F0FF;border:1px solid #E3DAF8;border-radius:6px;cursor:pointer;
+  overflow:hidden;overflow-wrap:anywhere;word-break:break-word;white-space:normal;
 }
 .share .art.print_ready{outline:2px solid #2F9E5F}
 .share .art.mini-wrap{display:flex;flex-direction:column;gap:4px}
@@ -49,7 +51,7 @@
 .share .art .info{padding:8px 10px;display:flex;flex-direction:column;gap:2px}
 .share .art .info b{font-size:13px;word-break:break-word}
 .share .art .info span,.share .art .info a{font-size:11.5px;color:#4A5361}
-.share .art .info .path{word-break:break-all}
+.share .art .info .path{overflow-wrap:anywhere;word-break:break-word}
 .share .art .info a{color:#D9247B;font-weight:650}
 .share .art.mini{aspect-ratio:1;display:grid;place-items:center;text-decoration:none;color:#4A5361;font-size:11px}
 .share .art.mini img{width:100%;height:100%;object-fit:cover}

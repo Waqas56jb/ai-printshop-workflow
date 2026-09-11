@@ -2,12 +2,35 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getBoard } from '../services/api.js';
 import { useBoardSocket } from './useBoardSocket.js';
 
+const CACHE_KEY = 'worker-board-cache';
+
+function readLocalBoard() {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const row = JSON.parse(raw);
+    if (!row?.data || Date.now() - row.at > 5 * 60_000) return null;
+    return row.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalBoard(data) {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data }));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useBoard(key, { label = '', preview = false } = {}) {
-  const [data, setData] = useState(null);
+  const cached = readLocalBoard();
+  const [data, setData] = useState(cached);
   const [offline, setOffline] = useState(false);
   const [invalid, setInvalid] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState(null);
-  const lastGood = useRef(null);
+  const [updatedAt, setUpdatedAt] = useState(cached ? new Date() : null);
+  const lastGood = useRef(cached);
   const timer = useRef(null);
 
   const fetchBoard = useCallback(async () => {
@@ -15,6 +38,7 @@ export function useBoard(key, { label = '', preview = false } = {}) {
       const payload = await getBoard(key);
       if (!payload) return;
       lastGood.current = payload;
+      writeLocalBoard(payload);
       setData(payload);
       setOffline(false);
       setInvalid(false);

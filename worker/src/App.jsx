@@ -26,7 +26,8 @@ export default function App() {
   const preview = params.get('preview') === '1';
   const label = params.get('label') || '';
   const [boardKey] = useState(readStoredKey);
-  const [access, setAccess] = useState('checking');
+  // Show board immediately — avoid a second full /api/board round-trip just for access check
+  const [access, setAccess] = useState(boardKey ? 'keyed' : 'public');
 
   if (preview) document.documentElement.classList.add('preview');
   if (!document.title.includes('Job board')) {
@@ -34,7 +35,12 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (boardKey) {
+      setAccess('keyed');
+      return undefined;
+    }
     let alive = true;
+    // Lightweight probe: if public board is locked, show key screen
     getBoard()
       .then(() => {
         if (alive) setAccess('public');
@@ -42,17 +48,14 @@ export default function App() {
       .catch((error) => {
         if (!alive) return;
         if (error.response?.status === 401 || error.response?.status === 403) {
-          setAccess(boardKey ? 'keyed' : 'none');
-          return;
+          setAccess('none');
         }
-        setAccess(boardKey ? 'keyed' : 'public');
       });
     return () => {
       alive = false;
     };
   }, [boardKey]);
 
-  if (access === 'checking') return null;
   if (access === 'none') return <NoKeyScreen />;
   return <BoardPage boardKey={access === 'keyed' ? boardKey : ''} preview={preview} label={label} />;
 }

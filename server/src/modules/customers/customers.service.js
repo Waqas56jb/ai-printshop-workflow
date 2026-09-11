@@ -230,8 +230,23 @@ export async function createCustomer(payload, userId) {
 
 export async function updateCustomer(id, payload) {
   await getCustomer(id);
+  const allowed = ['name', 'email', 'phone', 'company', 'notes', 'network_folder'];
+  const row = {};
+  for (const key of allowed) {
+    if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+    let value = payload[key];
+    if (typeof value === 'string') value = value.trim();
+    if (key === 'network_folder' && typeof value === 'string') {
+      value = value.replace(/\\+/g, '\\') || null;
+    }
+    if (value === '') value = null;
+    row[key] = value;
+  }
+  if (!Object.keys(row).length) {
+    return getCustomer(id);
+  }
   return unwrap(
-    await supabase.from('customers').update(payload).eq('id', id).select('*').single(),
+    await supabase.from('customers').update(row).eq('id', id).select('*').single(),
     'Failed to update customer'
   );
 }

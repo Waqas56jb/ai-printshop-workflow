@@ -69,7 +69,7 @@ export function useCustomer(id) {
       setLoading(false);
       return;
     }
-    if (!silent && !readCache(`customer:${id}`, 60_000)) setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const data = await getCustomer(id);
       writeCache(`customer:${id}`, data);

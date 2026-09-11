@@ -31,6 +31,12 @@ function sizeLabel(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function normalizeNetworkPath(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\\+/g, '\\');
+}
+
 async function copyText(value) {
   await navigator.clipboard.writeText(value);
 }
@@ -39,14 +45,14 @@ export function ClientPack({ customer, onChanged }) {
   const fileRef = useRef(null);
   const folderRef = useRef(null);
   const [sku, setSku] = useState('');
-  const [networkFolder, setNetworkFolder] = useState(customer?.network_folder || '');
+  const [networkFolder, setNetworkFolder] = useState(normalizeNetworkPath(customer?.network_folder || ''));
   const [status, setStatus] = useState('revision');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [link, setLink] = useState(customer?.share_path ? clientPackUrl(customer.share_path) : '');
 
   useEffect(() => {
-    setNetworkFolder(customer?.network_folder || '');
+    setNetworkFolder(normalizeNetworkPath(customer?.network_folder || ''));
     setLink(customer?.share_path ? clientPackUrl(customer.share_path) : '');
   }, [customer?.id, customer?.network_folder, customer?.share_path]);
 
@@ -55,7 +61,7 @@ export function ClientPack({ customer, onChanged }) {
   async function saveFolder() {
     if (!customer?.id) return;
     try {
-      await updateCustomer(customer.id, { network_folder: networkFolder.trim() || null });
+      await updateCustomer(customer.id, { network_folder: normalizeNetworkPath(networkFolder) || null });
       toast('Network folder saved');
       onChanged?.();
     } catch (error) {
@@ -66,7 +72,8 @@ export function ClientPack({ customer, onChanged }) {
   async function upload(list) {
     const selected = Array.from(list || []);
     if (!selected.length || !customer?.id) return;
-    if (!networkFolder.trim()) {
+    const folder = normalizeNetworkPath(networkFolder);
+    if (!folder) {
       toast('Enter the store network folder first, e.g. P:\\CUSTOMER FOLDERS\\AVON ATHLETICS-STEPHANIE KIESEL');
       return;
     }
@@ -75,7 +82,7 @@ export function ClientPack({ customer, onChanged }) {
     try {
       await uploadArtifacts(customer.id, selected, {
         sku,
-        network_folder: networkFolder.trim(),
+        network_folder: folder,
         proof_status: status,
         onProgress: setProgress,
       });
@@ -251,7 +258,12 @@ export function ClientPack({ customer, onChanged }) {
                   .filter(Boolean)
                   .join(' · ')}
               </span>
-              <button type="button" className="net-path" onClick={() => copyPath(file.network_path)}>
+              <button
+                type="button"
+                className="net-path"
+                title={file.network_path || undefined}
+                onClick={() => copyPath(file.network_path)}
+              >
                 {file.network_path || 'No network path — add the P:\\ folder above and re-upload'}
               </button>
             </div>

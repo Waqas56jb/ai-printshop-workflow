@@ -2,6 +2,14 @@ import { supabase, unwrap } from '../../config/supabase.js';
 import * as settingsService from '../settings/settings.service.js';
 
 const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 };
+const DISPLAY_TTL_MS = 6_000;
+let displayCache = { at: 0, data: null };
+let displayInflight = null;
+
+export function invalidateBoardDisplayCache() {
+  displayCache = { at: 0, data: null };
+  displayInflight = null;
+}
 
 function daysBetween(dueDate) {
   if (!dueDate) return null;
@@ -152,10 +160,17 @@ export async function getBoard() {
 }
 
 export async function getBoardDisplay() {
-  const [settings, stagesResult] = await Promise.all([
-    settingsService.getSettings(),
-    supabase.from('stages').select('*').order('position', { ascending: true }),
+  if (displayCache.data && Date.now() - displayCache.at < DISPLAY_TTL_MS) {
+    return displayCache.data;
+  }
+  if (displayInflight) return displayInflight;
+
+  displayInflight = (async () => {
+  const [rawSettings, stagesResult] = await Promise.all([
+    settingsService.getRawSettings(),
+    supabase.from('stages').select('id, name, slug, color, position, is_final, show_on_board').order('position', { ascending: true }),
   ]);
+  const settings = { ...settingsService.SETTING_DEFAULTS, ...rawSettings };
   const hideHours = Number(settings.board_hide_delivered_after ?? 2);
   const stages = unwrap(stagesResult, 'Failed to load stages');
 
@@ -182,7 +197,8 @@ export async function getBoardDisplay() {
       `
       )
       .eq('status', 'completed')
-      .gte('completed_at', hideSince),
+      .gte('completed_at', hideSince)
+      .limit(80),
     supabase
       .from('voice_commands')
       .select(
@@ -205,7 +221,8 @@ export async function getBoardDisplay() {
           .from('job_artworks')
           .select('id, job_id, file_url, file_name, file_type, is_approved, created_at')
           .in('job_id', jobIds)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: false })
+          .limit(Math.min(jobIds.length * 2, 200)),
         'Failed to load artwork'
       )
     : [];
@@ -214,7 +231,8 @@ export async function getBoardDisplay() {
     const current = acc.get(row.job_id) || { count: 0, approved: false, files: [] };
     current.count += 1;
     if (row.is_approved) current.approved = true;
-    current.files.push(mapArtwork(row));
+    // Keep at most one thumbnail per job for the TV board
+    if (current.files.length < 1) current.files.push(mapArtwork(row));
     acc.set(row.job_id, current);
     return acc;
   }, new Map());
@@ -257,7 +275,7 @@ export async function getBoardDisplay() {
     };
   }
 
-  return {
+  const result = {
     shop: {
       name: settings.business_name || 'Print Shop',
       logo_url: settings.business_logo_url || null,
@@ -278,7 +296,7 @@ export async function getBoardDisplay() {
         const days = daysBetween(job.due_date);
         return days !== null && days < 0;
       }).length,
-      delivered_this_week: (jobs || []).filter(
+      delivered_this_week: jobs.filter(
         (job) =>
           job.status === 'completed' &&
           !isDummyBoardJob(job, artByJob.get(job.id)) &&
@@ -289,4 +307,14 @@ export async function getBoardDisplay() {
     stages: columns,
     last_voice,
   };
+
+  displayCache = { at: Date.now(), data: result };
+  return result;
+  })();
+
+  try {
+    return await displayInflight;
+  } finally {
+    displayInflight = null;
+  }
 }

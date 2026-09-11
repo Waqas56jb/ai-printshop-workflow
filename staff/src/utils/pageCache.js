@@ -30,3 +30,34 @@ export function writeCache(key, data) {
     // ignore quota
   }
 }
+
+export function clearCache(key) {
+  memory.delete(key);
+  try {
+    sessionStorage.removeItem(storageKey(key));
+  } catch {
+    // ignore
+  }
+}
+
+export function clearCachePrefix(prefix) {
+  for (const key of [...memory.keys()]) {
+    if (key === prefix || key.startsWith(`${prefix}:`) || key.startsWith(prefix)) {
+      memory.delete(key);
+    }
+  }
+  try {
+    const remove = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (!key?.startsWith('ps-cache:')) continue;
+      const raw = key.slice('ps-cache:'.length);
+      if (raw === prefix || raw.startsWith(`${prefix}:`) || raw.startsWith(prefix)) {
+        remove.push(key);
+      }
+    }
+    remove.forEach((key) => sessionStorage.removeItem(key));
+  } catch {
+    // ignore
+  }
+}

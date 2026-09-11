@@ -8,10 +8,20 @@ import * as boardService from './board.service.js';
 
 export const getBoard = asyncHandler(async (req, res) => {
   const key = typeof req.query.key === 'string' ? req.query.key : '';
-  const boardKey = await settingsService.getSetting('board_key', '');
-  const boardPublic = settingsService.isBoardPublic(await settingsService.getSetting('board_public', true));
+  const preview = req.query.preview === '1' || req.query.preview === 'true';
+  const raw = await settingsService.getRawSettings();
+  const boardKey = typeof raw.board_key === 'string' ? raw.board_key : '';
+  const boardPublic = settingsService.isBoardPublic(raw.board_public);
   const keyOk = Boolean(key && boardKey && key === boardKey);
-  void req.query.preview;
+  const profile = await optionalUser(req);
+  const isStaff = Boolean(profile && ['admin', 'staff'].includes(profile.role));
+
+  // Admin/staff UI (column counts) — lean array, not the heavy TV payload
+  if (isStaff && !preview && !key) {
+    const board = await boardService.getBoard();
+    noteBoardFetch();
+    return sendOk(res, board, 'Board retrieved');
+  }
 
   if (boardPublic || keyOk) {
     const board = await boardService.getBoardDisplay();
@@ -19,8 +29,7 @@ export const getBoard = asyncHandler(async (req, res) => {
     return sendOk(res, board, 'Board retrieved');
   }
 
-  const profile = await optionalUser(req);
-  if (!profile || !['admin', 'staff'].includes(profile.role)) {
+  if (!isStaff) {
     throw new ApiError(401, 'Board key required');
   }
 
@@ -38,7 +47,8 @@ export const getStats = asyncHandler(async (_req, res) => {
 });
 
 export const getKey = asyncHandler(async (_req, res) => {
-  const key = await settingsService.getSetting('board_key', '');
-  const boardPublic = settingsService.isBoardPublic(await settingsService.getSetting('board_public', true));
+  const raw = await settingsService.getRawSettings();
+  const key = typeof raw.board_key === 'string' ? raw.board_key : '';
+  const boardPublic = settingsService.isBoardPublic(raw.board_public);
   return sendOk(res, { key: key || '', board_public: boardPublic }, 'Board key');
 });

@@ -29,8 +29,9 @@ export default function BoardPage() {
       listJobs({ status: 'completed', page: 1, limit: 1 }),
     ]);
     setStages(rows || []);
+    const columns = Array.isArray(board) ? board : board?.stages || [];
     const next = {};
-    (board || []).forEach((column) => {
+    columns.forEach((column) => {
       next[column.id] = column.jobs?.length || 0;
     });
     const finalStage = (rows || []).find((stage) => stage.is_final);

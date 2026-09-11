@@ -20,9 +20,11 @@
   padding:0 10px;font:inherit;font-size:12px;background:var(--sheet);
 }
 .job-detail .art .net-path{
-  display:block;width:100%;text-align:left;margin:4px 0 2px;font-family:ui-monospace,Consolas,monospace;
-  font-size:11px;line-height:1.35;color:#5B3FB8;background:#F4F0FF;border:1px solid #E3DAF8;
-  border-radius:6px;padding:5px 7px;word-break:break-all;cursor:pointer;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;box-sizing:border-box;
+  width:100%;max-width:100%;min-width:0;margin:4px 0 2px;padding:5px 7px;text-align:left;
+  font-family:ui-monospace,Consolas,monospace;font-size:11px;line-height:1.35;color:#5B3FB8;
+  background:#F4F0FF;border:1px solid #E3DAF8;border-radius:6px;cursor:pointer;
+  overflow:hidden;overflow-wrap:anywhere;word-break:break-word;white-space:normal;
 }
 .job-detail .more-menu{position:absolute;right:0;top:40px;z-index:20;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-md);padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(22,26,31,.12)}
 .job-detail .more-menu button{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500}
@@ -45,14 +47,14 @@
 .job-detail .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;align-items:start}
 .job-detail .col{display:flex;flex-direction:column;gap:16px}
 
-.job-detail .art-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 18px}
-.job-detail .art{border:1px solid var(--rule);border-radius:var(--r-md);overflow:hidden;background:var(--paper)}
+.job-detail .art-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:16px 18px}
+.job-detail .art{border:1px solid var(--rule);border-radius:var(--r-md);overflow:hidden;background:var(--paper);min-width:0}
 .job-detail .art .thumb{aspect-ratio:4/3;background:repeating-conic-gradient(#E6E8E4 0 25%,#F2F3F0 0 50%) 0 0/16px 16px;display:grid;place-items:center;color:var(--ink-3);font-size:12px;position:relative;overflow:hidden}
 .job-detail .art .thumb img{width:100%;height:100%;object-fit:cover}
 .job-detail .art .thumb .v{position:absolute;top:8px;left:8px;background:var(--ink);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px}
 .job-detail .art .thumb .ok{position:absolute;top:8px;right:8px;background:var(--green);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px;display:flex;align-items:center;gap:4px}
 .job-detail .art .thumb .ok svg{width:11px;height:11px;stroke-width:3}
-.job-detail .art .info{padding:9px 11px;background:var(--sheet)}
+.job-detail .art .info{padding:9px 11px;background:var(--sheet);min-width:0;overflow:hidden}
 .job-detail .art .name{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .job-detail .art .by{font-size:11.5px;color:var(--ink-3)}
 .job-detail .art .ops{display:flex;gap:2px;margin-top:6px}

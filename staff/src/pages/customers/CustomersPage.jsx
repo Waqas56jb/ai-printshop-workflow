@@ -10,6 +10,7 @@ import { JobDrawer } from '../../components/jobs/JobDrawer.jsx';
 import { useCustomer, useCustomers } from '../../hooks/useCustomers.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { listUsers } from '../../services/jobs.service.js';
+import { clearCache, clearCachePrefix } from '../../utils/pageCache.js';
 
 export default function CustomersPage() {
   const { id } = useParams();
@@ -33,12 +34,15 @@ export default function CustomersPage() {
   });
   const { customer, refetch: refetchOne } = useCustomer(id);
   const refreshAll = useCallback(() => {
+    if (id) clearCache(`customer:${id}`);
+    clearCachePrefix('customers');
+    clearCache('customer-stats');
     refetch();
     refetchOne();
-  }, [refetch, refetchOne]);
+  }, [refetch, refetchOne, id]);
 
   useEffect(() => {
-    listUsers()
+    listUsers({ lite: true })
       .then((rows) => setUsers((rows || []).filter((user) => user.is_active !== false)))
       .catch(() => {});
   }, []);
@@ -55,7 +59,7 @@ export default function CustomersPage() {
 
   function selectedForDrawer() {
     if (prefill) return prefill;
-    if (customer) return { id: customer.id, name: customer.name };
+    if (customer) return { id: customer.id, name: customer.name, network_folder: customer.network_folder };
     return null;
   }
 
@@ -97,7 +101,16 @@ export default function CustomersPage() {
       <CustomerPanel
         customer={customer}
         onEdit={() => {
-          setEditing(customer);
+          if (!customer) return;
+          setEditing({
+            id: customer.id,
+            name: customer.name || '',
+            company: customer.company || '',
+            phone: customer.phone || '',
+            email: customer.email || '',
+            notes: customer.notes || '',
+            network_folder: customer.network_folder || '',
+          });
           setModalOpen(true);
         }}
         onNewJob={() => openJob(customer)}
@@ -111,12 +124,15 @@ export default function CustomersPage() {
           setModalOpen(false);
           setEditing(null);
         }}
-        onSaved={(saved) => {
-          toast(editing ? 'Customer updated' : 'Customer added');
+        onSaved={async (saved, mode) => {
+          toast(mode === 'created' || !editing ? 'Customer added' : 'Customer updated');
           setModalOpen(false);
           setEditing(null);
-          refetch();
+          clearCache(`customer:${saved.id}`);
+          clearCachePrefix('customers');
+          clearCache('customer-stats');
           navigate(`/customers/${saved.id}`);
+          await Promise.all([refetch(), refetchOne()]);
         }}
       />
 
@@ -133,8 +149,7 @@ export default function CustomersPage() {
           toast(`Job ${saved.job_number} created`);
           setDrawerOpen(false);
           setPrefill(null);
-          refetch();
-          refetchOne();
+          refreshAll();
         }}
       />
     </main>
