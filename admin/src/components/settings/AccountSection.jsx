@@ -10,9 +10,9 @@ function PasswordDialog({ open, onClose, onSave }) {
 
   return (
     <div className="ss-modal">
-      <div className="scrim" onClick={onClose}></div>
+      <button type="button" className="ss-modal-scrim" aria-label="Close" onClick={onClose} />
       <form
-        className="box"
+        className="ss-modal-box"
         onSubmit={async (event) => {
           event.preventDefault();
           setBusy(true);
@@ -32,16 +32,28 @@ function PasswordDialog({ open, onClose, onSave }) {
         <div className="mb">
           {error ? <div className="login-error">{error}</div> : null}
           <div className="f">
-            <label>Current password</label>
-            <label className="field">
-              <input type="password" value={current} onChange={(event) => setCurrent(event.target.value)} required />
-            </label>
+            <label htmlFor="ss-cur-pass">Current password</label>
+            <input
+              id="ss-cur-pass"
+              className="ss-input"
+              type="password"
+              value={current}
+              onChange={(event) => setCurrent(event.target.value)}
+              required
+              autoFocus
+            />
           </div>
           <div className="f">
-            <label>New password</label>
-            <label className="field">
-              <input type="password" value={next} onChange={(event) => setNext(event.target.value)} minLength={8} required />
-            </label>
+            <label htmlFor="ss-new-pass">New password</label>
+            <input
+              id="ss-new-pass"
+              className="ss-input"
+              type="password"
+              value={next}
+              onChange={(event) => setNext(event.target.value)}
+              minLength={8}
+              required
+            />
           </div>
         </div>
         <div className="mf">

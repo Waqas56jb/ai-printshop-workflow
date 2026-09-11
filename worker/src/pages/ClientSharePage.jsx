@@ -39,6 +39,32 @@ async function copyPath(value) {
   await navigator.clipboard.writeText(value);
 }
 
+function PathCopy({ value, copied, onCopy, hint }) {
+  if (!value) {
+    return <span className="muted">No network path saved</span>;
+  }
+  const isCopied = copied === value;
+  return (
+    <div className="net-box">
+      {hint ? <span className="net-label">{hint}</span> : null}
+      <div className="net-row">
+        <button
+          type="button"
+          className={`net-path${isCopied ? ' is-copied' : ''}`}
+          title={value}
+          onClick={() => onCopy(value)}
+        >
+          {value}
+        </button>
+        <button type="button" className="net-copy" onClick={() => onCopy(value)}>
+          {isCopied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <p className="net-hint">{isCopied ? 'Path copied — paste on the store computer' : 'Tap copy, then open this folder on the store PC'}</p>
+    </div>
+  );
+}
+
 export function ClientSharePage() {
   const { token } = useParams();
   const [pack, setPack] = useState(null);
@@ -48,13 +74,17 @@ export function ClientSharePage() {
 
   useEffect(() => {
     let alive = true;
-    document.documentElement.dataset.theme = 'light';
-    document.body.dataset.theme = 'light';
+    const html = document.documentElement;
+    const body = document.body;
+    html.classList.add('share-page');
+    body.classList.add('share-page');
+    html.dataset.theme = 'light';
+    body.dataset.theme = 'light';
     getSharePack(token)
       .then((data) => {
         if (!alive) return;
         setPack(data);
-        if (data?.customer?.name) document.title = `${data.customer.name} · Client pack`;
+        if (data?.customer?.name) document.title = `${data.customer.name} · Printer pack`;
       })
       .catch((err) => {
         if (alive) setError(err.response?.data?.message || 'This client link is invalid or expired');
@@ -64,6 +94,8 @@ export function ClientSharePage() {
       });
     return () => {
       alive = false;
+      html.classList.remove('share-page');
+      body.classList.remove('share-page');
     };
   }, [token]);
 
@@ -71,7 +103,7 @@ export function ClientSharePage() {
     try {
       await copyPath(value);
       setCopied(value);
-      window.setTimeout(() => setCopied(''), 1500);
+      window.setTimeout(() => setCopied(''), 1800);
     } catch {
       setCopied('');
     }
@@ -80,7 +112,7 @@ export function ClientSharePage() {
   if (loading) {
     return (
       <div className="share">
-        <p className="share-msg">Loading client pack…</p>
+        <p className="share-msg">Loading printer pack…</p>
       </div>
     );
   }
@@ -88,7 +120,7 @@ export function ClientSharePage() {
   if (error || !pack) {
     return (
       <div className="share">
-        <p className="share-msg">{error || 'Not found'}</p>
+        <p className="share-msg err">{error || 'Not found'}</p>
       </div>
     );
   }
@@ -97,19 +129,29 @@ export function ClientSharePage() {
   const artifacts = pack.artifacts || [];
   const jobs = pack.jobs || [];
   const ready = artifacts.filter((file) => file.proof_status === 'print_ready' || file.proof_status === 'approved');
+  const contact = [customer.company, customer.phone, customer.email].filter(Boolean);
 
   return (
     <div className="share">
       <header className="share-head">
         <div>
-          <p className="kicker">Store / printer pack</p>
-          <h1>{customer.name}</h1>
-          <p className="sub">
-            {[customer.company, customer.phone, customer.email].filter(Boolean).join(' · ') || 'Print shop client'}
-          </p>
+          <div className="share-brand">Store · Printer pack</div>
+          <h1>{customer.name || 'Client'}</h1>
+          {contact.length ? <p className="sub">{contact.join(' · ')}</p> : null}
+          <div className="share-meta">
+            <span className="share-chip">
+              Artwork <b>{artifacts.length}</b>
+            </span>
+            <span className="share-chip">
+              Print-ready <b>{ready.length}</b>
+            </span>
+            <span className="share-chip">
+              Jobs <b>{jobs.length}</b>
+            </span>
+          </div>
         </div>
         <button type="button" className="print-btn" onClick={() => window.print()}>
-          Print
+          Print pack
         </button>
       </header>
 
@@ -134,31 +176,34 @@ export function ClientSharePage() {
           </div>
         </dl>
         {customer.network_folder ? (
-          <dl className="net-box">
-            <div>
-              <dt>Customer folder on the store network</dt>
-              <dd>
-                <button type="button" className="net-path" onClick={() => onCopy(customer.network_folder)}>
-                  {customer.network_folder}
-                  {copied === customer.network_folder ? ' · copied' : ' · click to copy'}
-                </button>
-              </dd>
-            </div>
-          </dl>
+          <PathCopy
+            value={customer.network_folder}
+            copied={copied}
+            onCopy={onCopy}
+            hint="Customer folder on the store network"
+          />
         ) : null}
         {customer.notes ? <p className="notes">{customer.notes}</p> : null}
       </section>
 
       {ready.length ? (
         <section className="share-card ready">
-          <h2>Print-ready files — open these on the store computer</h2>
+          <h2>
+            Print-ready on the store PC
+            <span className="count">{ready.length} file{ready.length === 1 ? '' : 's'}</span>
+          </h2>
           {ready.map((file) => (
             <div className="ready-row" key={file.id}>
               <b>{file.file_name}</b>
               <span className={`badge ${file.proof_status}`}>{STATUS[file.proof_status] || file.proof_status}</span>
-              <button type="button" className="net-path" onClick={() => onCopy(file.network_path)}>
+              <button
+                type="button"
+                className={`net-path${copied === file.network_path ? ' is-copied' : ''}`}
+                title={file.network_path || customer.network_folder || ''}
+                onClick={() => onCopy(file.network_path || customer.network_folder)}
+              >
                 {file.network_path || customer.network_folder || 'No network path saved'}
-                {copied === file.network_path ? ' · copied' : ''}
+                {copied === (file.network_path || customer.network_folder) ? ' · copied' : ''}
               </button>
             </div>
           ))}
@@ -166,7 +211,10 @@ export function ClientSharePage() {
       ) : null}
 
       <section className="share-card">
-        <h2>Artwork ({artifacts.length})</h2>
+        <h2>
+          Artwork
+          <span className="count">{artifacts.length}</span>
+        </h2>
         {artifacts.length === 0 ? (
           <p className="muted">No files uploaded yet.</p>
         ) : (
@@ -186,18 +234,31 @@ export function ClientSharePage() {
                       )}
                     </div>
                     <div className="info">
-                      <b>{file.file_name}</b>
-                      <span className={`badge ${file.proof_status || ''}`}>
-                        {STATUS[file.proof_status] || 'Revision'}
-                        {file.revision > 1 ? ` · v${file.revision}` : ''}
-                      </span>
-                      {file.sku ? <span>SKU {file.sku}</span> : null}
-                      <button type="button" className="net-path" onClick={() => onCopy(file.network_path)}>
-                        {file.network_path || 'No network path'}
-                      </button>
-                      <a href={file.file_url} target="_blank" rel="noreferrer">
-                        Preview
-                      </a>
+                      <b title={file.file_name}>{file.file_name}</b>
+                      <div className="meta">
+                        <span className={`badge ${file.proof_status || 'revision'}`}>
+                          {STATUS[file.proof_status] || 'Revision'}
+                          {file.revision > 1 ? ` · v${file.revision}` : ''}
+                        </span>
+                        {file.sku ? <span className="sku">SKU {file.sku}</span> : null}
+                      </div>
+                      {file.network_path ? (
+                        <button
+                          type="button"
+                          className={`net-path${copied === file.network_path ? ' is-copied' : ''}`}
+                          title={file.network_path}
+                          onClick={() => onCopy(file.network_path)}
+                        >
+                          {file.network_path}
+                        </button>
+                      ) : (
+                        <span className="muted">No network path</span>
+                      )}
+                      <div className="actions">
+                        <a className="preview" href={file.file_url} target="_blank" rel="noreferrer">
+                          Preview
+                        </a>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -208,7 +269,10 @@ export function ClientSharePage() {
       </section>
 
       <section className="share-card">
-        <h2>Jobs ({jobs.length})</h2>
+        <h2>
+          Jobs
+          <span className="count">{jobs.length}</span>
+        </h2>
         {jobs.length === 0 ? (
           <p className="muted">No jobs for this client yet.</p>
         ) : (
@@ -237,7 +301,12 @@ export function ClientSharePage() {
                         {isImage(art) ? <img src={art.file_url} alt={art.file_name} /> : <span>{art.file_name}</span>}
                       </a>
                       {art.network_path ? (
-                        <button type="button" className="net-path" onClick={() => onCopy(art.network_path)}>
+                        <button
+                          type="button"
+                          className={`net-path${copied === art.network_path ? ' is-copied' : ''}`}
+                          title={art.network_path}
+                          onClick={() => onCopy(art.network_path)}
+                        >
                           {art.network_path}
                         </button>
                       ) : null}

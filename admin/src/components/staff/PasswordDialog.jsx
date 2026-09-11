@@ -1,14 +1,16 @@
+import { createPortal } from 'react-dom';
+
 export function PasswordDialog({ open, title, password, onClose }) {
   if (!open) return null;
 
-  return (
-    <div className="ss-modal">
-      <div className="scrim" onClick={onClose}></div>
-      <div className="box">
+  return createPortal(
+    <div className="ss-modal" role="dialog" aria-modal="true">
+      <button type="button" className="ss-modal-scrim" aria-label="Close" onClick={onClose} />
+      <div className="ss-modal-box">
         <div className="mh">{title || 'Temporary password'}</div>
         <div className="mb">
           <p className="hint">Share this with them; they can change it after signing in.</p>
-          <div className="field">
+          <div className="ss-pass-row">
             <span className="temp">{password}</span>
             <button
               type="button"
@@ -25,6 +27,7 @@ export function PasswordDialog({ open, title, password, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

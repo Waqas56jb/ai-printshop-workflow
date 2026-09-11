@@ -94,28 +94,49 @@
 .settings-page .chip-item{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:99px;background:var(--paper);font-size:12.5px}
 .settings-page .chip-item button{color:var(--ink-3);font-size:14px;line-height:1}
 
-.ss-modal{position:fixed;inset:0;z-index:42;display:grid;place-items:center;padding:24px}
-.ss-modal .scrim{position:absolute;inset:0;background:rgba(22,26,31,.35)}
-.ss-modal .box{position:relative;width:100%;max-width:440px;background:var(--sheet);border-radius:var(--r-lg);box-shadow:0 24px 60px rgba(22,26,31,.25)}
+.ss-modal{
+  position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:24px;
+}
+.ss-modal-scrim{
+  position:absolute;inset:0;border:0;padding:0;margin:0;cursor:pointer;
+  background:rgba(22,26,31,.45);
+}
+.ss-modal-box{
+  position:relative;z-index:1;width:100%;max-width:440px;background:#fff;
+  border:1px solid var(--rule);border-radius:var(--r-lg);
+  box-shadow:0 16px 48px rgba(22,26,31,.22);
+}
 .ss-modal .mh{padding:18px 22px 12px;font-size:16px;font-weight:600}
 .ss-modal .mb{padding:0 22px 8px;display:flex;flex-direction:column;gap:14px}
 .ss-modal .f{display:flex;flex-direction:column;gap:6px}
-.ss-modal .f label{font-size:13px;font-weight:500;color:var(--ink-2)}
-.ss-modal .f .hint{font-size:12px;color:var(--ink-3)}
-.ss-modal .field{display:flex;align-items:center;gap:8px;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-sm);padding:0 11px;height:36px}
-.ss-modal .field input,.ss-modal .field select{border:0;outline:0;background:transparent;width:100%;font:inherit}
-.ss-modal .field:focus-within{border-color:var(--ink)}
-.ss-modal .seg{display:flex;border:1px solid var(--rule);border-radius:var(--r-sm);overflow:hidden}
-.ss-modal .seg button{flex:1;height:36px;font-weight:500;color:var(--ink-2);border-right:1px solid var(--rule)}
+.ss-modal .f label,.ss-modal .ss-label{font-size:13px;font-weight:500;color:var(--ink-2)}
+.ss-modal .f .hint,.ss-modal .hint{font-size:12px;color:var(--ink-3)}
+.ss-modal .ss-input,
+.ss-modal .ss-select{
+  width:100%;height:40px;border:1px solid var(--rule);border-radius:var(--r-sm);
+  background:#fff;color:var(--ink);font:inherit;outline:0;padding:0 12px;
+}
+.ss-modal .ss-select{appearance:none;-webkit-appearance:none;cursor:pointer}
+.ss-modal .ss-input:focus,
+.ss-modal .ss-select:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(22,26,31,.08)}
+.ss-modal .ss-pass-row{display:flex;gap:8px;align-items:center}
+.ss-modal .ss-pass-row .ss-input{flex:1;min-width:0}
+.ss-modal .ss-pass-row .temp{
+  flex:1;min-width:0;height:40px;display:flex;align-items:center;
+  padding:0 12px;border:1px solid var(--rule);border-radius:var(--r-sm);background:#fff;
+}
+.ss-modal .seg{display:flex;border:1px solid var(--rule);border-radius:var(--r-sm);overflow:hidden;background:#fff}
+.ss-modal .seg button{flex:1;height:36px;font-weight:500;color:var(--ink-2);border-right:1px solid var(--rule);background:#fff}
 .ss-modal .seg button:last-child{border-right:0}
 .ss-modal .seg button.on{background:var(--ink);color:#fff}
-.ss-modal .mf{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px 18px}
-.ss-modal .btn{display:inline-flex;align-items:center;gap:7px;padding:0 14px;height:36px;border-radius:var(--r-sm);font-weight:600;font-size:13px}
-.ss-modal .btn-primary{background:var(--magenta);color:#fff}
-.ss-modal .btn-ghost{border:1px solid var(--rule);background:var(--sheet)}
-.ss-modal .btn-sm{height:30px;padding:0 10px;font-size:12.5px}
-.ss-modal .btn-danger{border:1px solid #F1C6C2;color:var(--red);background:var(--sheet)}
-.ss-modal .temp{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:600}
+.ss-modal .mf{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px 18px;border-top:1px solid var(--rule-2)}
+.ss-modal .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 14px;height:36px;border-radius:var(--r-sm);font-weight:600;font-size:13px;cursor:pointer}
+.ss-modal .btn-primary{background:var(--magenta);color:#fff;border:0}
+.ss-modal .btn-ghost{border:1px solid var(--rule);background:#fff;color:var(--ink)}
+.ss-modal .btn-sm{height:36px;padding:0 10px;font-size:12.5px;flex-shrink:0}
+.ss-modal .btn-danger{border:1px solid #F1C6C2;color:var(--red);background:#fff}
+.ss-modal .temp{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:600;color:var(--ink)}
+.ss-modal .login-error{background:#FDECEC;color:#B42318;border-radius:8px;padding:8px 10px;font-size:13px}
 
 @media (max-width:900px){
   .staff-page,.settings-page{padding:16px 14px 40px}

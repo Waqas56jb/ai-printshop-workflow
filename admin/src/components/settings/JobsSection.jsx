@@ -7,8 +7,8 @@ function ListDialog({ open, title, items, onClose, onSave }) {
 
   return (
     <div className="ss-modal">
-      <div className="scrim" onClick={onClose}></div>
-      <div className="box">
+      <button type="button" className="ss-modal-scrim" aria-label="Close" onClick={onClose} />
+      <div className="ss-modal-box">
         <div className="mh">{title}</div>
         <div className="mb">
           <div className="chips">
@@ -21,8 +21,9 @@ function ListDialog({ open, title, items, onClose, onSave }) {
               </span>
             ))}
           </div>
-          <label className="field">
+          <div className="ss-pass-row">
             <input
+              className="ss-input"
               value={value}
               placeholder="Add type"
               onChange={(event) => setValue(event.target.value)}
@@ -46,7 +47,7 @@ function ListDialog({ open, title, items, onClose, onSave }) {
             >
               Add
             </button>
-          </label>
+          </div>
         </div>
         <div className="mf">
           <button type="button" className="btn btn-ghost" onClick={onClose}>

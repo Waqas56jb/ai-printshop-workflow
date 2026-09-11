@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { generateTempPassword, shortUid } from '../../utils/password.js';
 
 const empty = {
@@ -20,6 +21,7 @@ export function StaffModal({ open, person, devices, onClose, onSave }) {
   useEffect(() => {
     if (!open) return;
     setError('');
+    setSaving(false);
     if (person) {
       setForm({
         full_name: person.full_name || '',
@@ -44,6 +46,7 @@ export function StaffModal({ open, person, devices, onClose, onSave }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (saving) return;
     setSaving(true);
     setError('');
     try {
@@ -56,31 +59,31 @@ export function StaffModal({ open, person, devices, onClose, onSave }) {
       });
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Could not save');
-    } finally {
       setSaving(false);
     }
   }
 
-  return (
-    <div className="ss-modal">
-      <div className="scrim" onClick={onClose}></div>
-      <form className="box" onSubmit={handleSubmit}>
+  return createPortal(
+    <div className="ss-modal" role="dialog" aria-modal="true">
+      <button type="button" className="ss-modal-scrim" aria-label="Close" onClick={onClose} />
+      <form className="ss-modal-box" onSubmit={handleSubmit}>
         <div className="mh">{editing ? 'Edit person' : 'Add person'}</div>
         <div className="mb">
           {error ? <div className="login-error">{error}</div> : null}
           <div className="f">
-            <label>Full name</label>
-            <label className="field">
-              <input
-                value={form.full_name}
-                onChange={(event) => setField('full_name', event.target.value)}
-                placeholder="e.g. Nida Khan"
-                required
-              />
-            </label>
+            <label htmlFor="ss-full-name">Full name</label>
+            <input
+              id="ss-full-name"
+              className="ss-input"
+              value={form.full_name}
+              onChange={(event) => setField('full_name', event.target.value)}
+              placeholder="e.g. Nida Khan"
+              required
+              autoFocus
+            />
           </div>
           <div className="f">
-            <label>Role</label>
+            <span className="ss-label">Role</span>
             <div className="seg">
               {['admin', 'staff', 'worker'].map((role) => (
                 <button
@@ -96,34 +99,36 @@ export function StaffModal({ open, person, devices, onClose, onSave }) {
             <span className="hint">Workers don't sign in — they only use an OMI device.</span>
           </div>
           <div className="f">
-            <label>Job title (optional)</label>
-            <label className="field">
-              <input
-                value={form.job_title}
-                onChange={(event) => setField('job_title', event.target.value)}
-                placeholder="e.g. Designer"
-              />
-            </label>
+            <label htmlFor="ss-job-title">Job title (optional)</label>
+            <input
+              id="ss-job-title"
+              className="ss-input"
+              value={form.job_title}
+              onChange={(event) => setField('job_title', event.target.value)}
+              placeholder="e.g. Designer"
+            />
           </div>
           {!worker ? (
             <div className="f">
-              <label>Email</label>
-              <label className="field">
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(event) => setField('email', event.target.value)}
-                  placeholder="name@printshop.com"
-                  required
-                />
-              </label>
+              <label htmlFor="ss-email">Email</label>
+              <input
+                id="ss-email"
+                className="ss-input"
+                type="email"
+                value={form.email}
+                onChange={(event) => setField('email', event.target.value)}
+                placeholder="name@printshop.com"
+                required
+              />
             </div>
           ) : null}
           {!worker && !editing ? (
             <div className="f">
-              <label>Temporary password</label>
-              <label className="field">
+              <label htmlFor="ss-password">Temporary password</label>
+              <div className="ss-pass-row">
                 <input
+                  id="ss-password"
+                  className="ss-input"
                   value={form.password}
                   onChange={(event) => setField('password', event.target.value)}
                   required
@@ -135,26 +140,29 @@ export function StaffModal({ open, person, devices, onClose, onSave }) {
                 >
                   Regenerate
                 </button>
-              </label>
+              </div>
               <span className="hint">Share this with them; they can change it after signing in.</span>
             </div>
           ) : null}
           <div className="f">
-            <label>OMI device</label>
-            <label className="field">
-              <select value={form.omi_uid} onChange={(event) => setField('omi_uid', event.target.value)}>
-                <option value="">Assign later</option>
-                {options.map((device) => (
-                  <option key={device.omi_uid} value={device.omi_uid}>
-                    {shortUid(device.omi_uid)} {device.user ? '' : '(unassigned)'}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <label htmlFor="ss-omi">OMI device</label>
+            <select
+              id="ss-omi"
+              className="ss-input ss-select"
+              value={form.omi_uid}
+              onChange={(event) => setField('omi_uid', event.target.value)}
+            >
+              <option value="">Assign later</option>
+              {options.map((device) => (
+                <option key={device.omi_uid} value={device.omi_uid}>
+                  {shortUid(device.omi_uid)} {device.user ? '' : '(unassigned)'}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="mf">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
             Cancel
           </button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -162,6 +170,7 @@ export function StaffModal({ open, person, devices, onClose, onSave }) {
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }

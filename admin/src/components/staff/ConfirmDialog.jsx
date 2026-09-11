@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export function ConfirmDialog({ open, title, body, confirmLabel, danger, requireText, onClose, onConfirm }) {
   const [typed, setTyped] = useState('');
@@ -25,19 +26,23 @@ export function ConfirmDialog({ open, title, body, confirmLabel, danger, require
     }
   }
 
-  return (
-    <div className="ss-modal">
-      <div className="scrim" onClick={onClose}></div>
-      <div className="box">
+  return createPortal(
+    <div className="ss-modal" role="dialog" aria-modal="true">
+      <button type="button" className="ss-modal-scrim" aria-label="Close" onClick={onClose} />
+      <div className="ss-modal-box">
         <div className="mh">{title}</div>
         <div className="mb">
           {body ? <p className="hint">{body}</p> : null}
           {requireText ? (
             <div className="f">
-              <label>Type {requireText} to continue</label>
-              <label className="field">
-                <input value={typed} onChange={(event) => setTyped(event.target.value)} />
-              </label>
+              <label htmlFor="ss-confirm-text">Type {requireText} to continue</label>
+              <input
+                id="ss-confirm-text"
+                className="ss-input"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                autoFocus
+              />
             </div>
           ) : null}
         </div>
@@ -55,6 +60,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel, danger, require
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
