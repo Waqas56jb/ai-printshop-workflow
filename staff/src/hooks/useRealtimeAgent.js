@@ -4,9 +4,9 @@ import { useVoiceAgentStore } from '../store/voiceAgentStore.js';
 
 const IDLE_MS = 3 * 60 * 1000;
 const TIPS = [
-  "What's due today?",
-  "New job for Café Nine, 120 menu cards, due Monday",
-  "Where is Sarah's job?",
+  'Naya job: Basit ke liye 50 T-shirts, due Monday',
+  "New job for Café Nine — 120 menu cards",
+  "Aaj due kya hai?",
   'Move J-1025 to QC',
 ];
 
@@ -23,6 +23,9 @@ function secretValue(session) {
 
 function toolDetail(name, result) {
   const job = result?.result;
+  if (name === 'create_job' && job?.job_number) {
+    return result?.result?.spoken_summary || `Created ${job.job_number}`;
+  }
   if (name === 'move_stage' && job?.job_number) {
     return `${job.job_number}${job.stage ? ` → ${job.stage}` : ''}`;
   }
@@ -34,6 +37,58 @@ function toolDetail(name, result) {
   if (result?.error) return result.error;
   if (job?.job_number) return job.job_number;
   return '';
+}
+
+function waitForIce(pc) {
+  if (pc.iceGatheringState === 'complete') return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      if (pc.iceGatheringState === 'complete') {
+        pc.removeEventListener('icegatheringstatechange', done);
+        resolve();
+      }
+    };
+    pc.addEventListener('icegatheringstatechange', done);
+    window.setTimeout(() => {
+      pc.removeEventListener('icegatheringstatechange', done);
+      resolve();
+    }, 2500);
+  });
+}
+
+async function connectRealtimeSdp(secret, offerSdp, model) {
+  const headers = {
+    Authorization: `Bearer ${secret}`,
+    'Content-Type': 'application/sdp',
+  };
+  const attempts = [
+    { url: 'https://api.openai.com/v1/realtime/calls', headers },
+    {
+      url: `https://api.openai.com/v1/realtime?model=${encodeURIComponent(model || 'gpt-realtime')}`,
+      headers: { ...headers, 'OpenAI-Beta': 'realtime=v1' },
+    },
+  ];
+
+  let lastError = 'Could not connect the realtime session';
+  for (const attempt of attempts) {
+    const response = await fetch(attempt.url, {
+      method: 'POST',
+      headers: attempt.headers,
+      body: offerSdp,
+    });
+    if (response.ok) {
+      return response.text();
+    }
+    const detail = await response.text().catch(() => '');
+    try {
+      const json = JSON.parse(detail);
+      lastError = json.error?.message || json.message || lastError;
+    } catch {
+      if (detail?.trim()) lastError = detail.trim().slice(0, 180);
+      else lastError = `Realtime connect failed (${response.status})`;
+    }
+  }
+  throw new Error(lastError);
 }
 
 export function useRealtimeAgent() {
@@ -104,45 +159,42 @@ export function useRealtimeAgent() {
     [sendText]
   );
 
-  const handleFunctionCall = useCallback(
-    async (event) => {
-      const name = event.name;
-      let args = {};
-      try {
-        args = event.arguments ? JSON.parse(event.arguments) : {};
-      } catch {
-        args = {};
-      }
-      const store = useVoiceAgentStore.getState();
-      const toolId = event.call_id || `${Date.now()}`;
-      store.addTool({ id: toolId, name, status: 'wait', detail: 'Working…' });
-      store.setStatus('thinking');
-      const result = await runRealtimeTool(name, args);
-      const candidates = result?.result?.candidates || [];
-      const needs = result?.needs_confirmation || candidates.length > 1;
-      store.updateTool(toolId, {
-        ok: result?.ok,
-        status: needs ? 'needs' : result?.ok ? 'done' : 'failed',
-        detail: toolDetail(name, result),
-        error: result?.error,
-        candidates,
-        result,
-      });
-      sendEvent(dcRef.current, {
-        type: 'conversation.item.create',
-        item: {
-          type: 'function_call_output',
-          call_id: event.call_id,
-          output: JSON.stringify(result),
-        },
-      });
-      sendEvent(dcRef.current, { type: 'response.create' });
-      if (name === 'end_session' || result?.result?.ended) {
-        stopRef.current();
-      }
-    },
-    []
-  );
+  const handleFunctionCall = useCallback(async (event) => {
+    const name = event.name;
+    let args = {};
+    try {
+      args = event.arguments ? JSON.parse(event.arguments) : {};
+    } catch {
+      args = {};
+    }
+    const store = useVoiceAgentStore.getState();
+    const toolId = event.call_id || `${Date.now()}`;
+    store.addTool({ id: toolId, name, status: 'wait', detail: 'Working…' });
+    store.setStatus('thinking');
+    const result = await runRealtimeTool(name, args);
+    const candidates = result?.result?.candidates || [];
+    const needs = result?.needs_confirmation || candidates.length > 1;
+    store.updateTool(toolId, {
+      ok: result?.ok,
+      status: needs ? 'needs' : result?.ok ? 'done' : 'failed',
+      detail: toolDetail(name, result),
+      error: result?.error,
+      candidates,
+      result,
+    });
+    sendEvent(dcRef.current, {
+      type: 'conversation.item.create',
+      item: {
+        type: 'function_call_output',
+        call_id: event.call_id,
+        output: JSON.stringify(result),
+      },
+    });
+    sendEvent(dcRef.current, { type: 'response.create' });
+    if (name === 'end_session' || result?.result?.ended) {
+      stopRef.current();
+    }
+  }, []);
 
   const onRealtimeEvent = useCallback(
     (raw) => {
@@ -196,45 +248,41 @@ export function useRealtimeAgent() {
     store.setOpen(true);
     store.setStatus('listening');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = stream;
       setMicStream(stream);
       const session = await createRealtimeSession();
       const secret = secretValue(session);
       if (!secret) throw new Error('Realtime session did not return a client secret');
+
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
       const audio = document.createElement('audio');
       audio.autoplay = true;
+      audio.setAttribute('playsinline', 'true');
       audioRef.current = audio;
       pc.ontrack = (event) => {
         audio.srcObject = event.streams[0];
+        audio.play?.().catch(() => {});
       };
+
       const dc = pc.createDataChannel('oai-events');
       dcRef.current = dc;
       dc.onmessage = (event) => onRealtimeEvent(event.data);
+
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const sdpHeaders = {
-        Authorization: `Bearer ${secret}`,
-        'Content-Type': 'application/sdp',
-      };
-      let sdpResponse = await fetch(
-        `https://api.openai.com/v1/realtime?model=${encodeURIComponent(session.model)}`,
-        { method: 'POST', headers: sdpHeaders, body: offer.sdp }
-      );
-      if (!sdpResponse.ok) {
-        sdpResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
-          method: 'POST',
-          headers: sdpHeaders,
-          body: offer.sdp,
-        });
-      }
-      if (!sdpResponse.ok) {
-        throw new Error('Could not connect the realtime session');
-      }
-      const answer = await sdpResponse.text();
+      await waitForIce(pc);
+
+      const answer = await connectRealtimeSdp(secret, pc.localDescription?.sdp || offer.sdp, session.model);
       await pc.setRemoteDescription({ type: 'answer', sdp: answer });
       bumpIdle();
     } catch (error) {

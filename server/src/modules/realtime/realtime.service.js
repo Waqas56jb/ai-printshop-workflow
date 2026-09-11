@@ -17,7 +17,7 @@ function todayLabel() {
   });
 }
 
-export function buildInstructions({ shopName, callerName, role, stages, jobs }) {
+export function buildInstructions({ shopName, callerName, role, stages, jobs, productTypes, printTypes }) {
   const stageLines = (stages || [])
     .map((stage) => {
       const aliases = (stage.aliases || []).filter(Boolean).join(', ');
@@ -32,23 +32,58 @@ export function buildInstructions({ shopName, callerName, role, stages, jobs }) 
       return `- ${job.job_number}: ${customer} / ${job.title} · ${stage} · due ${job.due_date || 'n/a'}`;
     })
     .join('\n');
+  const products = (productTypes || []).filter(Boolean).slice(0, 24).join(', ') || 'T-Shirt, Hoodie, Flyer, Banner, Sticker, Other';
+  const prints = (printTypes || []).filter(Boolean).slice(0, 16).join(', ') || 'Screen print, DTF, DTG, Sublimation, Digital, Offset';
 
-  return `You are the print shop assistant for ${shopName || 'Print Shop'}.
-Today is ${todayLabel()}.
+  return `You are the live speech-to-speech print shop floor assistant for ${shopName || 'Print Shop'}.
+You talk with staff over OpenAI Realtime audio. Today is ${todayLabel()}.
 The caller is ${callerName || 'a staff member'} (${role || 'staff'}).
 
-Stages:
+## Scope (strict)
+You ONLY help with this print shop workflow:
+- create jobs by voice
+- look up jobs / due today / pending
+- move jobs between stages
+- add notes
+- assign jobs
+- end the session
+
+Out of topic = anything else (weather, news, jokes, coding, politics, personal advice, general knowledge, other businesses).
+If the user goes off-topic: refuse in ONE short sentence in their language, then offer a shop action (e.g. create a job or check due today). Never answer the off-topic question.
+
+## Language (multilingual)
+- Detect the language the caller is speaking (Urdu, English, Roman Urdu, Hindi, Arabic, etc.).
+- ALWAYS reply in that same language.
+- Keep tool argument values in English where the system expects them (stage names from the list, priority enums, dates as YYYY-MM-DD, product_type/print_type from the lists below when possible).
+- Customer names and job titles may stay as spoken.
+
+## Create job (voice)
+When staff wants a new job, collect what you can in a natural short conversation:
+1) customer name (required)
+2) what to print / title or product type
+3) quantity
+4) due date if mentioned
+5) print type / sizes only if they say them
+
+Then call create_job. If they already gave enough details in one sentence, call create_job immediately — do not over-ask.
+After create_job succeeds, say the job number clearly once.
+
+Product types: ${products}
+Print types: ${prints}
+
+## Stages
 ${stageLines || '- (none)'}
 
-Active jobs:
+## Active jobs (context only — verify with tools)
 ${jobLines || '- (none)'}
 
-Rules:
-- Keep replies to one short sentence.
-- Always call a tool for any action or lookup; never invent job numbers.
-- If a job reference matches more than one job, call resolve_job first and ask the user which one.
+## Rules
+- Keep spoken replies to one short sentence (two max).
+- Always call a tool for any action or lookup; never invent job numbers or stage names.
+- If a job reference matches more than one job, call resolve_job first and ask which one.
 - Confirm destructive or skip-stage moves before doing them. Call move_stage with confirmed=true only after they agree.
-- If the user says stop, call end_session.`;
+- If the user says stop / end / goodbye (any language), call end_session.
+- Do not invent shop data outside tool results.`;
 }
 
 export async function getAgentConfig() {
@@ -56,7 +91,7 @@ export async function getAgentConfig() {
   return {
     enabled: settings.voice_agent_enabled !== false,
     voice: settings.voice_agent_voice || 'alloy',
-    model: env.REALTIME_MODEL || 'gpt-4o-realtime-preview',
+    model: env.REALTIME_MODEL || 'gpt-realtime',
   };
 }
 
@@ -91,7 +126,7 @@ export async function createSession(user, fetchImpl = fetch, loaders = {}) {
     (loaders.listStages || stagesService.listStages)(),
     loaders.listJobs ? loaders.listJobs() : compactActiveJobs(),
   ]);
-  const model = env.REALTIME_MODEL || 'gpt-4o-realtime-preview';
+  const model = env.REALTIME_MODEL || 'gpt-realtime';
   const voice = settings.voice_agent_voice || 'alloy';
   const instructions = buildInstructions({
     shopName: settings.business_name,
@@ -99,13 +134,15 @@ export async function createSession(user, fetchImpl = fetch, loaders = {}) {
     role: user?.role,
     stages,
     jobs,
+    productTypes: settings.product_types || settings.job_product_types,
+    printTypes: settings.print_types || settings.job_print_types,
   });
   const sessionFields = {
     model,
     voice,
     modalities: ['audio', 'text'],
     input_audio_transcription: { model: 'whisper-1' },
-    turn_detection: { type: 'server_vad', silence_duration_ms: 600 },
+    turn_detection: { type: 'server_vad', silence_duration_ms: 550, prefix_padding_ms: 300 },
     instructions,
     tools: toolSchemas,
     tool_choice: 'auto',
@@ -120,7 +157,11 @@ export async function createSession(user, fetchImpl = fetch, loaders = {}) {
       audio: {
         input: {
           transcription: { model: 'whisper-1' },
-          turn_detection: { type: 'server_vad', silence_duration_ms: 600 },
+          turn_detection: {
+            type: 'server_vad',
+            silence_duration_ms: 550,
+            prefix_padding_ms: 300,
+          },
         },
         output: { voice },
       },
@@ -135,18 +176,19 @@ export async function createSession(user, fetchImpl = fetch, loaders = {}) {
     headers['OpenAI-Safety-Identifier'] = `printshop-${user.id}`;
   }
 
-  let response = await fetchImpl(SESSION_URL, {
+  // Prefer GA client_secrets, then fall back to legacy sessions endpoint.
+  let response = await fetchImpl(CLIENT_SECRETS_URL, {
     method: 'POST',
     headers,
-    body: JSON.stringify(sessionFields),
+    body: JSON.stringify(gaBody),
   });
   let payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    response = await fetchImpl(CLIENT_SECRETS_URL, {
+    response = await fetchImpl(SESSION_URL, {
       method: 'POST',
       headers,
-      body: JSON.stringify(gaBody),
+      body: JSON.stringify(sessionFields),
     });
     payload = await response.json().catch(() => ({}));
   }

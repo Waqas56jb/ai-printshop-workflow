@@ -142,7 +142,7 @@
   .customers-page .side{position:static}
 }
 @media (max-width:768px){
-  .customers-page{padding:16px 14px 110px}
+  .customers-page{padding:16px 14px 40px}
   .customers-page .stats{grid-template-columns:1fr}
   .customers-page .toolbar{flex-wrap:wrap}
   .customers-page .toolbar .field.search{max-width:none}
@@ -154,7 +154,7 @@
   .cust-modal .row{grid-template-columns:1fr}
 }
 @media (max-width:480px){
-  .customers-page{padding:14px 12px 110px}
+  .customers-page{padding:14px 12px 36px}
   .customers-page .card-head{padding:14px}
   .customers-page .pack-row,
   .customers-page .pack .pack-actions,

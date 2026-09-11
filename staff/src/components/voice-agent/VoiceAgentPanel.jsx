@@ -1,4 +1,4 @@
-import { Waveform } from './Waveform.jsx';
+import { VoiceOrb } from './VoiceOrb.jsx';
 import { ToolCallCard } from './ToolCallCard.jsx';
 
 function clock(value) {
@@ -23,29 +23,44 @@ export function VoiceAgentPanel({
   onPickJob,
 }) {
   if (!open) return null;
+
   const empty = messages.length === 0;
-  const label = status === 'speaking' ? 'Speaking' : status === 'thinking' ? 'Thinking' : status === 'off' ? 'Off' : 'Listening';
+  const label =
+    status === 'speaking'
+      ? 'Speaking'
+      : status === 'thinking'
+        ? 'Thinking'
+        : status === 'off'
+          ? 'Off'
+          : 'Listening';
 
   return (
-    <div className="va-panel">
-      <div className="ph">
-        <div>
-          <div className={`st${status === 'thinking' ? ' thinking' : status === 'off' ? ' off' : ''}`}>
-            <i></i>
+    <div className="va-panel" role="dialog" aria-label="Voice assistant">
+      <div className="va-panel__aura" aria-hidden="true" />
+      <header className="va-panel__head">
+        <div className="va-panel__identity">
+          <div className={`va-panel__pill va-panel__pill--${status === 'off' ? 'off' : status === 'thinking' ? 'thinking' : 'live'}`}>
+            <span className="va-panel__dot" />
             {label}
           </div>
-          <div className="sub">Voice assistant{callerName ? ` · signed in as ${callerName}` : ''}</div>
+          <p className="va-panel__sub">
+            Live speech · multilingual
+            {callerName ? ` · ${callerName}` : ''}
+          </p>
         </div>
-        <button type="button" className="x" onClick={onClose} aria-label="Close">
-          <svg viewBox="0 0 24 24">
+        <button type="button" className="va-panel__close" onClick={onClose} aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>
-      </div>
-      <Waveform stream={stream} speaking={status === 'speaking'} />
-      {error ? <div className="err show">{error}</div> : null}
+      </header>
+
+      <VoiceOrb stream={stream} status={status} muted={muted} />
+
+      {error ? <div className="va-panel__err">{error}</div> : null}
+
       {empty && !error ? (
-        <div className="tips">
+        <div className="va-panel__tips">
           <p>Try saying</p>
           {tips.map((tip) => (
             <button key={tip} type="button" onClick={() => onTip(tip)}>
@@ -54,7 +69,7 @@ export function VoiceAgentPanel({
           ))}
         </div>
       ) : (
-        <div className="log">
+        <div className="va-panel__log">
           {messages.map((row) =>
             row.role === 'tool' ? (
               <ToolCallCard
@@ -64,25 +79,26 @@ export function VoiceAgentPanel({
                 onCancel={() => onTip?.('cancel')}
               />
             ) : (
-              <div key={row.id} className={`m ${row.role === 'user' ? 'user' : 'ai'}`}>
-                <div className={`b${row.partial ? ' partial' : ''}`}>{row.text}</div>
-                {row.at ? <div className="t">{clock(row.at)}</div> : null}
+              <div key={row.id} className={`va-msg va-msg--${row.role === 'user' ? 'user' : 'ai'}`}>
+                <div className={`va-msg__bubble${row.partial ? ' is-partial' : ''}`}>{row.text}</div>
+                {row.at ? <div className="va-msg__time">{clock(row.at)}</div> : null}
               </div>
             )
           )}
         </div>
       )}
-      <div className="pf">
-        <div className="hint">
-          Say <b>"stop"</b> to end · works best on Chrome
-        </div>
-        <button type="button" className={`mute${muted ? ' on' : ''}`} onClick={onMute}>
+
+      <footer className="va-panel__foot">
+        <p className="va-panel__hint">
+          Say <b>stop</b> to end · Chrome recommended
+        </p>
+        <button type="button" className={`va-panel__mute${muted ? ' is-on' : ''}`} onClick={onMute}>
           {muted ? 'Muted' : 'Mute'}
         </button>
-        <button type="button" className="end" onClick={onEnd}>
+        <button type="button" className="va-panel__end" onClick={onEnd}>
           End
         </button>
-      </div>
+      </footer>
     </div>
   );
 }

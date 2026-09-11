@@ -50,19 +50,19 @@ describe('realtime session', () => {
     assert.equal(body.toLowerCase().includes('sk-test-openai'), false);
   });
 
-  it('falls back to client_secrets when sessions is retired', async () => {
+  it('falls back to sessions when client_secrets fails', async () => {
     const urls = [];
     const fakeFetch = async (url) => {
       urls.push(url);
-      if (String(url).includes('/realtime/sessions')) {
+      if (String(url).includes('/realtime/client_secrets')) {
         return { ok: false, json: async () => ({ error: { message: 'Invalid URL' } }) };
       }
       return {
         ok: true,
         json: async () => ({
-          value: 'ek_ga_secret',
+          model: 'gpt-4o-realtime-preview',
           expires_at: 1700000001,
-          session: { model: 'gpt-realtime' },
+          client_secret: { value: 'ek_legacy_secret', expires_at: 1700000001 },
         }),
       };
     };
@@ -81,10 +81,10 @@ describe('realtime session', () => {
       }
     );
 
-    assert.equal(data.client_secret, 'ek_ga_secret');
-    assert.equal(data.model, 'gpt-realtime');
-    assert.equal(urls[0].includes('/realtime/sessions'), true);
-    assert.equal(urls[1].includes('/realtime/client_secrets'), true);
+    assert.equal(data.client_secret, 'ek_legacy_secret');
+    assert.equal(data.model, 'gpt-4o-realtime-preview');
+    assert.equal(urls[0].includes('/realtime/client_secrets'), true);
+    assert.equal(urls[1].includes('/realtime/sessions'), true);
     assert.equal(JSON.stringify(data).includes(KEY), false);
   });
 

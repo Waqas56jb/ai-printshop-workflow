@@ -7,9 +7,11 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useRealtimeAgent } from '../hooks/useRealtimeAgent.js';
 import { listUsers } from '../services/jobs.service.js';
 import { getRealtimeConfig } from '../services/realtime.service.js';
+import { useUiStore } from '../store/uiStore.js';
 import { useVoiceAgentStore } from '../store/voiceAgentStore.js';
 import { REALTIME_ENABLED } from '../config.js';
-import { TopNav } from './TopNav.jsx';
+import { Sidebar } from './Sidebar.jsx';
+import { Topbar } from './Topbar.jsx';
 
 export function AppLayout() {
   const { profile } = useAuth();
@@ -17,6 +19,8 @@ export function AppLayout() {
   const [drawer, setDrawer] = useState({ open: false, prefill: null });
   const agent = useRealtimeAgent();
   const setEnabled = useVoiceAgentStore((state) => state.setEnabled);
+  const navOpen = useUiStore((state) => state.navOpen);
+  const closeNav = useUiStore((state) => state.closeNav);
 
   useEffect(() => {
     listUsers({ lite: true })
@@ -34,21 +38,38 @@ export function AppLayout() {
       .catch(() => setEnabled(true));
   }, [setEnabled]);
 
+  useEffect(() => {
+    document.body.classList.toggle('nav-lock', navOpen);
+    return () => document.body.classList.remove('nav-lock');
+  }, [navOpen]);
+
+  useEffect(() => {
+    function onResize() {
+      if (window.innerWidth > 900) closeNav();
+    }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [closeNav]);
+
   const openJob = useCallback((prefill = null) => {
     setDrawer({ open: true, prefill });
   }, []);
 
   return (
     <div className="staff-app">
-      <TopNav
-        onNewJob={() => openJob(null)}
-        voice={{
-          enabled: REALTIME_ENABLED && agent.enabled,
-          status: agent.status,
-          onToggle: agent.toggle,
-        }}
-      />
-      <Outlet context={{ openJob }} />
+      {navOpen ? <div className="nav-scrim" onClick={closeNav} /> : null}
+      <Sidebar />
+      <div className="main">
+        <Topbar
+          onNewJob={() => openJob(null)}
+          voice={{
+            enabled: REALTIME_ENABLED && agent.enabled,
+            status: agent.status,
+            onToggle: agent.toggle,
+          }}
+        />
+        <Outlet context={{ openJob }} />
+      </div>
       <VoiceAgentPanel
         open={agent.open || Boolean(agent.error)}
         status={agent.status}

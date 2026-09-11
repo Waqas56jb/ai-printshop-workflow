@@ -47,7 +47,7 @@
 .sv-page .side-foot{display:flex;gap:8px}
 
 @media (max-width:768px){
-  .sv-page{padding:14px 12px 110px}
+  .sv-page{padding:14px 12px 36px}
   .sv-page .filters{flex-wrap:wrap}
   .sv-page .filters .field{width:100%}
   .sv-page .status{flex-wrap:wrap}

@@ -94,7 +94,7 @@
 .skel-row{height:48px;margin:8px 16px}
 
 @media (max-width:900px){
-  .jobs-page{padding:16px 14px 88px}
+  .jobs-page{padding:16px 14px 40px}
   .jobs-page .field.search{width:100%;max-width:none}
   .jobs-page .toolbar{flex-wrap:wrap}
   .drawer{width:100%}
@@ -102,7 +102,7 @@
   .bulk{left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));transform:none;flex-wrap:wrap;border-radius:16px;justify-content:center}
 }
 @media (max-width:640px){
-  .jobs-page{padding:14px 12px 110px}
+  .jobs-page{padding:14px 12px 36px}
   .drawer .row{grid-template-columns:1fr}
   .jobs-page table th:nth-child(5),.jobs-page table td:nth-child(5),
   .jobs-page table th:nth-child(7),.jobs-page table td:nth-child(7),

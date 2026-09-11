@@ -1,46 +1,51 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { Clock, LayoutList, Mic, Monitor, Plus, Search, Users } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Menu, Plus, Search } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { MicButton } from '../components/voice-agent/MicButton.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useSocket } from '../hooks/useSocket.js';
-import { getOmiSetupStatus, listPendingVoice } from '../services/today.service.js';
+import { getOmiSetupStatus } from '../services/today.service.js';
 import { listCustomers, listJobs } from '../services/jobs.service.js';
+import { useUiStore } from '../store/uiStore.js';
+import { formatLongDate } from '../utils/date.js';
 
-const links = [
-  { to: '/', label: 'Today', icon: Clock, end: true },
-  { to: '/jobs', label: 'Jobs', icon: LayoutList },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/voice', label: 'Voice', icon: Mic, badge: true },
-  { to: '/board', label: 'Board', icon: Monitor },
+const titles = [
+  { test: (path) => path === '/', title: 'Today' },
+  { test: (path) => path === '/jobs/new', title: 'Jobs' },
+  { test: (path) => /^\/jobs\/(?!new$).+/.test(path), title: 'Job' },
+  { test: (path) => path.startsWith('/jobs'), title: 'Jobs' },
+  { test: (path) => path.startsWith('/customers'), title: 'Customers' },
+  { test: (path) => path.startsWith('/voice'), title: 'Voice' },
+  { test: (path) => path.startsWith('/board'), title: 'Board' },
 ];
 
-export function TopNav({ onNewJob, voice }) {
+export function Topbar({ onNewJob, voice }) {
   const { profile, logout } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [omi, setOmi] = useState(null);
-  const [pending, setPending] = useState(0);
   const [menu, setMenu] = useState(false);
   const [hits, setHits] = useState({ jobs: [], customers: [] });
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
+  const meRef = useRef(null);
+  const pageTitle = useUiStore((state) => state.pageTitle);
+  const toggleNav = useUiStore((state) => state.toggleNav);
+  const title = pageTitle || titles.find((item) => item.test(location.pathname))?.title || 'Today';
 
-  const refresh = useCallback(() => {
+  const refreshOmi = useCallback(() => {
     getOmiSetupStatus()
       .then(setOmi)
       .catch(() => setOmi({ configured: false }));
-    listPendingVoice()
-      .then((result) => setPending(result.total || 0))
-      .catch(() => setPending(0));
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
-  useSocket(refresh);
+    refreshOmi();
+  }, [refreshOmi]);
+  useSocket(refreshOmi);
 
   useEffect(() => {
     const q = query.trim();
@@ -66,6 +71,7 @@ export function TopNav({ onNewJob, voice }) {
   useEffect(() => {
     function onDoc(event) {
       if (!boxRef.current?.contains(event.target)) setOpen(false);
+      if (!meRef.current?.contains(event.target)) setMenu(false);
     }
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -83,24 +89,13 @@ export function TopNav({ onNewJob, voice }) {
   }
 
   return (
-    <header className="topnav">
-      <div className="brand">
-        <div className="brand-mark">P</div>
-        <div>
-          <b>Print Shop</b>
-          <span>Staff</span>
-        </div>
-      </div>
-      <nav className="nav">
-        {links.map((link) => (
-          <NavLink key={link.to} to={link.to} end={link.end} className={({ isActive }) => (isActive ? 'on' : '')}>
-            <link.icon />
-            <span>{link.label}</span>
-            {link.badge && pending ? <span className="badge">{pending}</span> : null}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="spacer"></div>
+    <header className="topbar">
+      <button type="button" className="menu-btn" onClick={toggleNav} aria-label="Open menu">
+        <Menu />
+      </button>
+      <h1>{title}</h1>
+      <span className="date">{formatLongDate()}</span>
+      <div className="spacer" />
       <div className="search-wrap" ref={boxRef}>
         <form
           className="search"
@@ -112,6 +107,7 @@ export function TopNav({ onNewJob, voice }) {
         >
           <Search />
           <input
+            type="search"
             placeholder="Find a job or customer"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -137,7 +133,7 @@ export function TopNav({ onNewJob, voice }) {
         ) : null}
       </div>
       <div className={`omi ${connected ? '' : 'off'}`.trim()}>
-        <span className="dot"></span>
+        <span className="dot" />
         {connected ? 'OMI on' : omi?.configured ? 'OMI ready' : 'OMI off'}
       </div>
       <MicButton
@@ -149,7 +145,7 @@ export function TopNav({ onNewJob, voice }) {
         <Plus />
         <span className="btn-label">New job</span>
       </Button>
-      <div className="me">
+      <div className="me" ref={meRef}>
         <button type="button" onClick={() => setMenu((openMenu) => !openMenu)} aria-label="Account">
           <Avatar name={profile?.full_name} />
         </button>
@@ -168,15 +164,6 @@ export function TopNav({ onNewJob, voice }) {
           </div>
         ) : null}
       </div>
-      <nav className="bottom-nav" aria-label="Staff">
-        {links.map((link) => (
-          <NavLink key={link.to} to={link.to} end={link.end} className={({ isActive }) => (isActive ? 'on' : '')}>
-            <link.icon />
-            <span>{link.label}</span>
-            {link.badge && pending ? <i className="badge">{pending}</i> : null}
-          </NavLink>
-        ))}
-      </nav>
     </header>
   );
 }

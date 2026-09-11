@@ -44,17 +44,18 @@ export const toolSchemas = [
   {
     type: 'function',
     name: 'create_job',
-    description: 'Create a job. Creates the customer if needed.',
+    description:
+      'Create a print shop job from spoken details. Creates the customer if needed. Call when the staff wants a new job and you have at least a customer name; include title/product_type, quantity, due_date, print_type when known.',
     parameters: {
       type: 'object',
       properties: {
-        customer_name: { type: 'string' },
-        title: { type: 'string' },
-        product_type: { type: 'string' },
-        print_type: { type: 'string' },
-        size_details: { type: 'string' },
-        quantity: { type: 'number' },
-        due_date: { type: 'string', description: 'YYYY-MM-DD' },
+        customer_name: { type: 'string', description: 'Customer or company name as spoken' },
+        title: { type: 'string', description: 'Short job title / what to print' },
+        product_type: { type: 'string', description: 'e.g. T-Shirt, Hoodie, Flyer, Banner' },
+        print_type: { type: 'string', description: 'e.g. Screen print, DTF, DTG' },
+        size_details: { type: 'string', description: 'Sizes, colors, placement' },
+        quantity: { type: 'number', description: 'Total order quantity' },
+        due_date: { type: 'string', description: 'Due date as YYYY-MM-DD' },
         priority: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
       },
       required: ['customer_name'],
@@ -212,24 +213,35 @@ export function createToolExecutor(overrides = {}) {
           return { ok: true, result: compactJob(job) };
         }
         case 'create_job': {
-          const customerName = args.customer_name || 'Walk-in';
+          const customerName = String(args.customer_name || '').trim() || 'Walk-in';
           const customer = await deps.findOrCreateByName(customerName, user.id);
+          const title =
+            String(args.title || '').trim() ||
+            String(args.product_type || '').trim() ||
+            `${customerName} job`;
+          const quantity = Number(args.quantity);
           const job = await deps.createJob(
             {
               customer_id: customer.id,
-              title: args.title || args.product_type || `${customerName} job`,
-              product_type: args.product_type,
-              print_type: args.print_type,
-              size_details: args.size_details,
-              quantity: args.quantity || 1,
-              due_date: args.due_date,
-              priority: args.priority,
+              title,
+              product_type: args.product_type || null,
+              print_type: args.print_type || null,
+              size_details: args.size_details || null,
+              quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+              due_date: args.due_date || null,
+              priority: args.priority || 'normal',
             },
             user.id,
             { source: 'voice', role: user.role || 'staff' }
           );
           await record(user, 'create_job', `create job for ${customerName}`, { job_id: job.id });
-          return { ok: true, result: compactJob(job) };
+          return {
+            ok: true,
+            result: {
+              ...compactJob(job),
+              spoken_summary: `Created ${job.job_number} for ${customerName}`,
+            },
+          };
         }
         case 'move_stage': {
           const stage = await deps.findStageByName(args.stage);

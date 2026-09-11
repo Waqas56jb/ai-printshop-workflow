@@ -113,7 +113,7 @@
   .job-detail .steps::before,.job-detail .steps::after{display:none}
 }
 @media (max-width:768px){
-  .job-detail{padding:14px 12px 110px}
+  .job-detail{padding:14px 12px 36px}
   .job-detail .head{flex-direction:column}
   .job-detail .head .actions{margin-left:0;flex-wrap:wrap}
   .job-detail .steps{display:flex;overflow-x:auto;gap:16px;padding-bottom:8px;-webkit-overflow-scrolling:touch}
