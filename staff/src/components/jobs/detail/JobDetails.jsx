@@ -28,7 +28,19 @@ export function JobDetails({ job, onEdit, users = [] }) {
         </div>
         <div>
           <dt>Price</dt>
-          <dd className="num">{job.price != null ? formatMoney(job.price) : '—'}</dd>
+          <dd className="num">{job.price != null && job.price !== '' ? formatMoney(job.price) : '—'}</dd>
+        </div>
+        <div>
+          <dt>Due</dt>
+          <dd>{job.due_date ? formatShortDate(`${job.due_date}`.slice(0, 10)) : '—'}</dd>
+        </div>
+        <div>
+          <dt>Assigned</dt>
+          <dd>{job.assignee?.full_name || 'Unassigned'}</dd>
+        </div>
+        <div>
+          <dt>Priority</dt>
+          <dd>{job.priority ? job.priority[0].toUpperCase() + job.priority.slice(1) : '—'}</dd>
         </div>
         <div>
           <dt>Created</dt>
@@ -43,7 +55,7 @@ export function JobDetails({ job, onEdit, users = [] }) {
         </div>
         <div className="wide">
           <dt>Size / print details</dt>
-          <dd className="pre">{job.size_details || '—'}</dd>
+          <dd className="pre">{job.size_details || (typeof job.notes === 'string' ? job.notes : '') || '—'}</dd>
         </div>
       </dl>
     </section>

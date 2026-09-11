@@ -119,7 +119,7 @@ export async function getStaffDashboard(userId) {
     supabase
       .from('jobs')
       .select(
-        'id, job_number, title, quantity, priority, due_date, assigned_to, created_by, stage_id, status, created_at, customer:customers!customer_id(id, name), stage:stages!stage_id(id, name, slug, color, position, is_final)'
+        'id, job_number, title, product_type, print_type, size_details, price, quantity, priority, due_date, assigned_to, created_by, stage_id, status, created_at, customer:customers!customer_id(id, name), stage:stages!stage_id(id, name, slug, color, position, is_final), assignee:profiles!assigned_to(id, full_name)'
       )
       .eq('status', 'active')
       .order('due_date', { ascending: true, nullsFirst: false }),
@@ -194,6 +194,10 @@ export async function getStaffDashboard(userId) {
       id: job.id,
       job_number: job.job_number,
       title: job.title,
+      product_type: job.product_type,
+      print_type: job.print_type,
+      size_details: job.size_details,
+      price: job.price,
       quantity: job.quantity,
       priority: job.priority,
       due_date: job.due_date,
@@ -201,6 +205,7 @@ export async function getStaffDashboard(userId) {
       created_by: job.created_by,
       customer_name: job.customer?.name || null,
       customer: job.customer,
+      assignee: job.assignee || null,
       stage: job.stage
         ? {
             id: job.stage.id,

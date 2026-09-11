@@ -27,6 +27,9 @@ const intentSchema = z.object({
   note: z.string().nullable().optional(),
   quantity: z.number().nullable().optional(),
   product_type: z.string().nullable().optional(),
+  print_type: z.string().nullable().optional(),
+  size_details: z.string().nullable().optional(),
+  title: z.string().nullable().optional(),
   due_date: z.string().nullable().optional(),
   confidence: z.number().min(0).max(1),
   reply: z.string(),
@@ -97,8 +100,10 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false })
       const job = await jobsService.createJob(
         {
           customer_id: customer.id,
-          title: intent.product_type || `${customerName} job`,
+          title: intent.title || intent.product_type || `${customerName} job`,
           product_type: intent.product_type,
+          print_type: intent.print_type,
+          size_details: intent.size_details || intent.note,
           quantity: intent.quantity || 1,
           due_date: intent.due_date,
           stage_id: stage?.id,

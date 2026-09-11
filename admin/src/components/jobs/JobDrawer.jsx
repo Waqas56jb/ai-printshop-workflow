@@ -1,11 +1,39 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
-import { createCustomer, createJob, listCustomers, updateJob, uploadArtwork } from '../../services/jobs.service.js';
+import { createCustomer, createJob, getJob, listCustomers, updateJob, uploadArtwork } from '../../services/jobs.service.js';
 
 const PRODUCTS = ['T-Shirt', 'Hoodie', 'Flyer', 'Business card', 'Banner', 'Sticker', 'Other'];
 const PRINTS = ['Screen print', 'DTF', 'DTG', 'Sublimation', 'Digital', 'Offset'];
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+
+function toDateInput(value) {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+}
+
+function parsePrice(value) {
+  if (value === '' || value == null) return null;
+  const n = Number(String(value).replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function formFromJob(job) {
+  return {
+    customer_id: job.customer_id || '',
+    customer_name: job.customer?.name || '',
+    title: job.title || '',
+    product_type: job.product_type || 'T-Shirt',
+    quantity: job.quantity ?? '',
+    print_type: job.print_type || 'Screen print',
+    due_date: toDateInput(job.due_date),
+    priority: job.priority || 'normal',
+    assigned_to: job.assigned_to || '',
+    price: job.price ?? '',
+    size_details: job.size_details || (typeof job.notes === 'string' ? job.notes : '') || '',
+  };
+}
 
 const emptyForm = {
   customer_id: '',
@@ -32,20 +60,18 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
 
   useEffect(() => {
     if (!open) return;
-    if (job) {
-      setForm({
-        customer_id: job.customer_id || '',
-        customer_name: job.customer?.name || '',
-        title: job.title || '',
-        product_type: job.product_type || 'T-Shirt',
-        quantity: job.quantity ?? '',
-        print_type: job.print_type || 'Screen print',
-        due_date: job.due_date || '',
-        priority: job.priority || 'normal',
-        assigned_to: job.assigned_to || '',
-        price: job.price ?? '',
-        size_details: job.size_details || '',
-      });
+    let cancelled = false;
+    setFiles([]);
+    setProgress({});
+    setError('');
+
+    if (job?.id) {
+      setForm(formFromJob(job));
+      getJob(job.id)
+        .then((full) => {
+          if (!cancelled && full) setForm(formFromJob(full));
+        })
+        .catch(() => {});
     } else if (prefillCustomer) {
       setForm({
         ...emptyForm,
@@ -55,9 +81,10 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
     } else {
       setForm(emptyForm);
     }
-    setFiles([]);
-    setProgress({});
-    setError('');
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, job, prefillCustomer]);
 
   useEffect(() => {
@@ -100,11 +127,12 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
         product_type: form.product_type || null,
         quantity: Number(form.quantity) || 1,
         print_type: form.print_type || null,
-        due_date: form.due_date || null,
+        due_date: toDateInput(form.due_date) || null,
         priority: form.priority,
         assigned_to: form.assigned_to || null,
-        price: form.price === '' || !Number.isFinite(Number(form.price)) ? null : Number(form.price),
-        size_details: form.size_details || null,
+        price: parsePrice(form.price),
+        size_details: form.size_details.trim() || null,
+        notes: form.size_details.trim() || null,
       };
 
       const saved = job ? await updateJob(job.id, payload) : await createJob(payload);
@@ -204,7 +232,7 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
               <label>Product type</label>
               <label className="field">
                 <select value={form.product_type} onChange={(event) => setField('product_type', event.target.value)}>
-                  {PRODUCTS.map((item) => (
+                  {[form.product_type, ...PRODUCTS].filter((item, index, list) => item && list.indexOf(item) === index).map((item) => (
                     <option key={item}>{item}</option>
                   ))}
                 </select>
@@ -227,7 +255,7 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
               <label>Print type</label>
               <label className="field">
                 <select value={form.print_type} onChange={(event) => setField('print_type', event.target.value)}>
-                  {PRINTS.map((item) => (
+                  {[form.print_type, ...PRINTS].filter((item, index, list) => item && list.indexOf(item) === index).map((item) => (
                     <option key={item}>{item}</option>
                   ))}
                 </select>
@@ -266,6 +294,9 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
                       {user.full_name}
                     </option>
                   ))}
+                  {form.assigned_to && !users.some((user) => user.id === form.assigned_to) ? (
+                    <option value={form.assigned_to}>{job?.assignee?.full_name || 'Assigned'}</option>
+                  ) : null}
                 </select>
               </label>
             </div>

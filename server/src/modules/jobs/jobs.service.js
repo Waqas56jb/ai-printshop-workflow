@@ -27,7 +27,7 @@ const JOB_DETAIL_SELECT = `
   stage:stages!stage_id(*),
   assignee:profiles!assigned_to(id, full_name, email, role),
   artworks:job_artworks(*),
-  notes:job_notes(*, author:profiles!author_id(id, full_name, email)),
+  job_notes:job_notes(*, author:profiles!author_id(id, full_name, email)),
   history:job_stage_history(
     *,
     from_stage:stages!from_stage_id(id, name, slug, color),
@@ -35,6 +35,65 @@ const JOB_DETAIL_SELECT = `
     changed_by_profile:profiles!changed_by(id, full_name, email)
   )
 `;
+
+const JOB_WRITE_FIELDS = [
+  'customer_id',
+  'title',
+  'product_type',
+  'quantity',
+  'print_type',
+  'size_details',
+  'price',
+  'priority',
+  'stage_id',
+  'assigned_to',
+  'due_date',
+  'notes',
+  'status',
+  'completed_at',
+];
+
+function normalizeDueDate(value) {
+  if (value == null || value === '') return null;
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+}
+
+function normalizePrice(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const n = Number(String(value).replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeJobWrite(payload = {}) {
+  const out = {};
+  for (const key of JOB_WRITE_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+    let value = payload[key];
+    if (value === '') value = null;
+    if (key === 'due_date') value = normalizeDueDate(value);
+    if (key === 'price') value = normalizePrice(value);
+    if (key === 'quantity') {
+      const n = Number(value);
+      value = Number.isInteger(n) && n > 0 ? n : 1;
+    }
+    if (key === 'assigned_to' && !value) value = null;
+    out[key] = value;
+  }
+  return out;
+}
+
+function shapeJob(job) {
+  if (!job) return job;
+  const entries = job.job_notes || (Array.isArray(job.notes) ? job.notes : []);
+  const textNote = typeof job.notes === 'string' ? job.notes : null;
+  return {
+    ...job,
+    notes: entries,
+    size_details: job.size_details || textNote || null,
+  };
+}
 
 function sanitizeSearch(value) {
   return (value || '').replace(/[%_,.()]/g, ' ').trim();
@@ -81,7 +140,7 @@ export async function listJobs(filters) {
   const items = unwrap(result, 'Failed to list jobs');
 
   return {
-    items,
+    items: (items || []).map(shapeJob),
     page,
     limit,
     total: result.count ?? 0,
@@ -103,7 +162,7 @@ export async function getJob(id) {
   if (!job) {
     throw new ApiError(404, 'Job not found');
   }
-  return job;
+  return shapeJob(job);
 }
 
 export async function getJobRow(id) {
@@ -150,44 +209,44 @@ function isPrintingStage(stage) {
 }
 
 export async function createJob(payload, userId, options = {}) {
-  const stage = payload.stage_id
-    ? await stagesService.getStage(payload.stage_id)
+  const body = normalizeJobWrite(payload);
+  const stage = body.stage_id
+    ? await stagesService.getStage(body.stage_id)
     : await stagesService.getDefaultStage();
 
   const settings = await settingsService.getRawSettings();
-  const priority = payload.priority ?? settings.default_priority ?? 'normal';
-  const due_date =
-    payload.due_date !== undefined && payload.due_date !== null
-      ? payload.due_date
-      : addDaysIso(settings.default_due_days ?? 3);
+  const priority = body.priority ?? settings.default_priority ?? 'normal';
+  const due_date = body.due_date || addDaysIso(settings.default_due_days ?? 3);
 
   const assigned_to =
-    payload.assigned_to || (options.role === 'staff' ? userId : null);
+    body.assigned_to || (options.role === 'staff' ? userId : null);
 
   const job_number = await generateJobNumber();
-  const created = unwrap(
-    await supabase
-      .from('jobs')
-      .insert({
-        job_number,
-        customer_id: payload.customer_id,
-        title: payload.title,
-        product_type: payload.product_type ?? null,
-        quantity: payload.quantity ?? 1,
-        print_type: payload.print_type ?? null,
-        size_details: payload.size_details ?? null,
-        price: payload.price ?? null,
-        priority,
-        stage_id: stage.id,
-        assigned_to,
-        due_date,
-        notes: payload.notes ?? null,
-        status: 'active',
-        created_by: userId,
-      })
-      .select(JOB_LIST_SELECT)
-      .single(),
-    'Failed to create job'
+  const created = shapeJob(
+    unwrap(
+      await supabase
+        .from('jobs')
+        .insert({
+          job_number,
+          customer_id: body.customer_id,
+          title: body.title,
+          product_type: body.product_type ?? null,
+          quantity: body.quantity ?? 1,
+          print_type: body.print_type ?? null,
+          size_details: body.size_details ?? body.notes ?? null,
+          price: body.price ?? null,
+          priority,
+          stage_id: stage.id,
+          assigned_to,
+          due_date,
+          notes: body.notes ?? body.size_details ?? null,
+          status: 'active',
+          created_by: userId,
+        })
+        .select(JOB_LIST_SELECT)
+        .single(),
+      'Failed to create job'
+    )
   );
 
   unwrap(
@@ -209,9 +268,13 @@ export async function createJob(payload, userId, options = {}) {
 
 export async function updateJob(id, payload, options = {}) {
   await getJobRow(id);
-  const updated = unwrap(
-    await supabase.from('jobs').update(payload).eq('id', id).select(JOB_LIST_SELECT).single(),
-    'Failed to update job'
+  const body = normalizeJobWrite(payload);
+  if (body.size_details && !body.notes) body.notes = body.size_details;
+  const updated = shapeJob(
+    unwrap(
+      await supabase.from('jobs').update(body).eq('id', id).select(JOB_LIST_SELECT).single(),
+      'Failed to update job'
+    )
   );
   if (!options.silent) {
     emitJobUpdated(updated);

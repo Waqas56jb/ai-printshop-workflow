@@ -19,18 +19,24 @@ export const jobListQuery = z.object({
 });
 
 function emptyToNull(value) {
-  if (value === '' || value === undefined) return null;
-  const n = Number(value);
+  if (value === '' || value === undefined || value === null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const n = Number(String(value).replace(/[^0-9.-]/g, ''));
   return Number.isFinite(n) ? n : null;
+}
+
+function emptyStringToNull(value) {
+  if (value === '' || value === undefined) return null;
+  return value;
 }
 
 export const createJobBody = z.object({
   customer_id: z.string().uuid(),
   title: z.string().min(1),
-  product_type: z.string().nullable().optional(),
-  quantity: z.coerce.number().int().positive().default(1),
-  print_type: z.string().nullable().optional(),
-  size_details: z.string().nullable().optional(),
+  product_type: z.preprocess(emptyStringToNull, z.string().nullable().optional()),
+  quantity: z.coerce.number().int().positive().optional(),
+  print_type: z.preprocess(emptyStringToNull, z.string().nullable().optional()),
+  size_details: z.preprocess(emptyStringToNull, z.string().nullable().optional()),
   price: z.preprocess(emptyToNull, z.number().nullable().optional()),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
   stage_id: z.string().uuid().optional(),
@@ -38,12 +44,13 @@ export const createJobBody = z.object({
     .union([z.string().uuid(), z.literal(''), z.null()])
     .optional()
     .transform((value) => value || null),
-  due_date: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  due_date: z.preprocess(emptyStringToNull, z.string().nullable().optional()),
+  notes: z.preprocess(emptyStringToNull, z.string().nullable().optional()),
 });
 
 export const updateJobBody = createJobBody.partial().extend({
   status: z.enum(['active', 'completed', 'cancelled']).optional(),
+  completed_at: z.string().nullable().optional(),
 });
 
 export const moveStageBody = z.object({

@@ -8,7 +8,8 @@ import { formatDayTime } from '../../../utils/date.js';
 
 export function JobNotes({ job, currentUserId, onChanged }) {
   const [text, setText] = useState('');
-  const notes = [...(job.notes || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const raw = Array.isArray(job.job_notes) ? job.job_notes : Array.isArray(job.notes) ? job.notes : [];
+  const notes = [...raw].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   async function submit() {
     const body = text.trim();
