@@ -100,22 +100,22 @@ function mapBoardJob(job, stage, art = { count: 0, approved: false, files: [] })
   const days_left = daysBetween(job.due_date);
   const is_overdue = days_left !== null && days_left < 0 && !stage.is_final;
   const is_due_today = days_left === 0 && !stage.is_final;
-  const files = art.files || [];
   return {
     id: job.id,
     job_number: job.job_number,
     customer_name: job.customer?.name || null,
     title: job.title,
+    product_type: job.product_type || null,
     quantity: job.quantity,
     priority: job.priority,
     due_date: job.due_date,
     due_label_hint: weekdayHint(job.due_date),
     is_overdue,
     is_due_today,
+    stage_name: stage.name || null,
     assigned_initials: initials(job.assignee?.full_name),
-    artworks: files,
-    artworks_count: files.length || art.count || 0,
-    has_approved_artwork: art.approved || files.some((file) => file.is_approved),
+    artworks_count: art.count || 0,
+    has_approved_artwork: art.approved || false,
     updated_at: job.updated_at,
   };
 }
@@ -130,7 +130,7 @@ export async function getBoard() {
     await supabase
       .from('jobs')
       .select(
-        'id, job_number, title, quantity, due_date, priority, stage_id, customer:customers!customer_id(name)'
+        'id, job_number, title, product_type, quantity, due_date, priority, stage_id, customer:customers!customer_id(name)'
       )
       .eq('status', 'active'),
     'Failed to load board jobs'
@@ -149,9 +149,11 @@ export async function getBoard() {
             job_number: job.job_number,
             customer_name: job.customer?.name || null,
             title: job.title,
+            product_type: job.product_type || null,
             quantity: job.quantity,
             due_date: job.due_date,
             priority: job.priority,
+            stage_name: stage.name || null,
             is_overdue: days_left !== null && days_left < 0 && !stage.is_final,
             days_left,
           };
@@ -181,7 +183,7 @@ export async function getBoardDisplay() {
       .from('jobs')
       .select(
         `
-        id, job_number, title, quantity, due_date, priority, stage_id, status, completed_at, updated_at,
+        id, job_number, title, product_type, quantity, due_date, priority, stage_id, status, completed_at, updated_at,
         customer:customers!customer_id(name),
         assignee:profiles!assigned_to(full_name)
       `
@@ -191,7 +193,7 @@ export async function getBoardDisplay() {
       .from('jobs')
       .select(
         `
-        id, job_number, title, quantity, due_date, priority, stage_id, status, completed_at, updated_at,
+        id, job_number, title, product_type, quantity, due_date, priority, stage_id, status, completed_at, updated_at,
         customer:customers!customer_id(name),
         assignee:profiles!assigned_to(full_name)
       `
