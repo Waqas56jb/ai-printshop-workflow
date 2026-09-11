@@ -152,16 +152,17 @@ export async function getBoard() {
 }
 
 export async function getBoardDisplay() {
-  const settings = await settingsService.getSettings();
+  const [settings, stagesResult] = await Promise.all([
+    settingsService.getSettings(),
+    supabase.from('stages').select('*').order('position', { ascending: true }),
+  ]);
   const hideHours = Number(settings.board_hide_delivered_after ?? 2);
+  const stages = unwrap(stagesResult, 'Failed to load stages');
 
-  const stages = unwrap(
-    await supabase.from('stages').select('*').order('position', { ascending: true }),
-    'Failed to load stages'
-  );
+  const hideSince = new Date(Date.now() - Math.max(1, hideHours) * 60 * 60 * 1000).toISOString();
 
-  const jobs = unwrap(
-    await supabase
+  const [activeJobsResult, completedJobsResult, lastVoiceResult] = await Promise.all([
+    supabase
       .from('jobs')
       .select(
         `
@@ -170,11 +171,34 @@ export async function getBoardDisplay() {
         assignee:profiles!assigned_to(full_name)
       `
       )
-      .in('status', ['active', 'completed']),
-    'Failed to load board jobs'
-  );
+      .eq('status', 'active'),
+    supabase
+      .from('jobs')
+      .select(
+        `
+        id, job_number, title, quantity, due_date, priority, stage_id, status, completed_at, updated_at,
+        customer:customers!customer_id(name),
+        assignee:profiles!assigned_to(full_name)
+      `
+      )
+      .eq('status', 'completed')
+      .gte('completed_at', hideSince),
+    supabase
+      .from('voice_commands')
+      .select(
+        'transcript, intent, action, created_at, user:profiles!user_id(full_name), job:jobs!job_id(job_number)'
+      )
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  const jobIds = (jobs || []).map((job) => job.id);
+  const jobs = [
+    ...(unwrap(activeJobsResult, 'Failed to load board jobs') || []),
+    ...(unwrap(completedJobsResult, 'Failed to load completed board jobs') || []),
+  ];
+
+  const jobIds = jobs.map((job) => job.id);
   const artworks = jobIds.length
     ? unwrap(
         await supabase
@@ -197,7 +221,7 @@ export async function getBoardDisplay() {
 
   const visibleStages = (stages || []).filter((stage) => stage.show_on_board !== false);
   const columns = visibleStages.map((stage) => {
-    const columnJobs = (jobs || [])
+    const columnJobs = jobs
       .filter((job) => job.stage_id === stage.id && includeJobOnBoard(job, stage, hideHours, artByJob.get(job.id)))
       .map((job) => mapBoardJob(job, stage, artByJob.get(job.id)))
       .sort(sortBoardJobs);
@@ -210,24 +234,14 @@ export async function getBoardDisplay() {
     };
   });
 
-  const active = (jobs || []).filter(
+  const active = jobs.filter(
     (job) => job.status === 'active' && !isDummyBoardJob(job, artByJob.get(job.id))
   );
   const stageById = new Map((stages || []).map((stage) => [stage.id, stage]));
   const inProgress = active.filter((job) => !stageById.get(job.stage_id)?.is_final);
   const weekStart = startOfWeek();
 
-  const lastVoiceRow = unwrap(
-    await supabase
-      .from('voice_commands')
-      .select(
-        'transcript, intent, action, created_at, user:profiles!user_id(full_name), job:jobs!job_id(job_number)'
-      )
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    'Failed to load last voice command'
-  );
+  const lastVoiceRow = unwrap(lastVoiceResult, 'Failed to load last voice command');
 
   let last_voice = null;
   if (lastVoiceRow) {

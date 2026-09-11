@@ -19,7 +19,7 @@ export function AppLayout() {
   const setEnabled = useVoiceAgentStore((state) => state.setEnabled);
 
   useEffect(() => {
-    listUsers()
+    listUsers({ lite: true })
       .then((rows) => setUsers((rows || []).filter((user) => user.is_active !== false && user.role !== 'worker')))
       .catch(() => {});
   }, []);

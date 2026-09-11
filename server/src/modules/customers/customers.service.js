@@ -15,14 +15,14 @@ function isActive(job) {
   return job.status === 'active';
 }
 
-function isDelivered(job) {
-  return job.status === 'completed' || Boolean(job.stage?.is_final);
-}
-
 async function listJobsLite(customerIds) {
-  let query = supabase.from('jobs').select(JOB_LITE).order('created_at', { ascending: false });
-  if (customerIds?.length) query = query.in('customer_id', customerIds);
   if (customerIds && customerIds.length === 0) return [];
+  let query = supabase
+    .from('jobs')
+    .select(JOB_LITE)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (customerIds?.length) query = query.in('customer_id', customerIds);
   return unwrap(await query, 'Failed to load customer jobs') || [];
 }
 
@@ -44,19 +44,67 @@ function enrichCustomer(customer, jobs) {
 }
 
 export async function listCustomers({ search, filter, sort = 'recent', page = 1, limit = 20 }) {
-  let query = supabase.from('customers').select('*', { count: 'exact' });
-
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
   const q = sanitizeSearch(search);
+
+  // Fast path: SQL pagination — only enrich jobs for the current page
+  if (!filter && (sort === 'name' || sort === 'recent')) {
+    let query = supabase.from('customers').select('*', { count: 'exact' });
+    if (q) {
+      query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,company.ilike.%${q}%`);
+    }
+    query =
+      sort === 'name'
+        ? query.order('name', { ascending: true })
+        : query.order('created_at', { ascending: false });
+    const result = await query.range(from, to);
+    const rows = unwrap(result, 'Failed to list customers') || [];
+    const jobs = await listJobsLite(rows.map((row) => row.id));
+    return {
+      items: rows.map((row) => enrichCustomer(row, jobs)),
+      page,
+      limit,
+      total: result.count ?? 0,
+    };
+  }
+
+  // Active filter: start from active jobs, then page those customers
+  if (filter === 'active') {
+    const activeJobs =
+      unwrap(
+        await supabase.from('jobs').select('customer_id').eq('status', 'active'),
+        'Failed to load active jobs'
+      ) || [];
+    let ids = [...new Set(activeJobs.map((row) => row.customer_id).filter(Boolean))];
+    if (!ids.length) return { items: [], page, limit, total: 0 };
+
+    let query = supabase.from('customers').select('*', { count: 'exact' }).in('id', ids);
+    if (q) {
+      query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,company.ilike.%${q}%`);
+    }
+    query = query.order(sort === 'name' ? 'name' : 'created_at', { ascending: sort === 'name' });
+    const result = await query.range(from, to);
+    const rows = unwrap(result, 'Failed to list customers') || [];
+    const jobs = await listJobsLite(rows.map((row) => row.id));
+    return {
+      items: rows.map((row) => enrichCustomer(row, jobs)),
+      page,
+      limit,
+      total: result.count ?? ids.length,
+    };
+  }
+
+  // Fallback for sort=jobs / filter=none — still avoid loading every completed job forever
+  let query = supabase.from('customers').select('*', { count: 'exact' });
   if (q) {
     query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,company.ilike.%${q}%`);
   }
-
   const result = await query;
   const rows = unwrap(result, 'Failed to list customers') || [];
   const jobs = await listJobsLite(rows.map((row) => row.id));
   let items = rows.map((row) => enrichCustomer(row, jobs));
 
-  if (filter === 'active') items = items.filter((item) => item.active_jobs.length > 0);
   if (filter === 'none') items = items.filter((item) => item.total_jobs === 0);
 
   if (sort === 'name') {
@@ -72,39 +120,47 @@ export async function listCustomers({ search, filter, sort = 'recent', page = 1,
   }
 
   const total = items.length;
-  const from = (page - 1) * limit;
   items = items.slice(from, from + limit);
-
   return { items, page, limit, total };
 }
 
 export async function getCustomerStats() {
-  const customers = unwrap(await supabase.from('customers').select('id, created_at'), 'Failed to load customers') || [];
-  const jobs = await listJobsLite(customers.map((row) => row.id));
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
-  const byCustomer = new Map(customers.map((row) => [row.id, []]));
-  jobs.forEach((job) => {
-    if (!byCustomer.has(job.customer_id)) byCustomer.set(job.customer_id, []);
-    byCustomer.get(job.customer_id).push(job);
-  });
+  const [totalResult, newResult, activeJobsResult, customersWithJobs] = await Promise.all([
+    supabase.from('customers').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', monthStart.toISOString()),
+    supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabase.from('jobs').select('customer_id, status').in('status', ['active', 'completed']).limit(2000),
+  ]);
 
-  let withActive = 0;
+  const jobRows = unwrap(customersWithJobs, 'Failed to load customer jobs') || [];
+  const activeCustomerIds = new Set();
+  const deliveredByCustomer = new Map();
+  for (const job of jobRows) {
+    if (!job.customer_id) continue;
+    if (job.status === 'active') activeCustomerIds.add(job.customer_id);
+    if (job.status === 'completed') {
+      deliveredByCustomer.set(job.customer_id, (deliveredByCustomer.get(job.customer_id) || 0) + 1);
+    }
+  }
   let repeat = 0;
-  customers.forEach((row) => {
-    const mine = byCustomer.get(row.id) || [];
-    if (mine.some(isActive)) withActive += 1;
-    if (mine.filter(isDelivered).length >= 2) repeat += 1;
-  });
+  for (const count of deliveredByCustomer.values()) {
+    if (count >= 2) repeat += 1;
+  }
+  const total = totalResult.count ?? 0;
 
   return {
-    total: customers.length,
-    new_this_month: customers.filter((row) => new Date(row.created_at) >= monthStart).length,
-    with_active_jobs: withActive,
-    active_jobs_count: jobs.filter(isActive).length,
-    repeat_percent: customers.length ? Math.round((repeat / customers.length) * 100) : 0,
+    total,
+    new_this_month: newResult.count ?? 0,
+    with_active_jobs: activeCustomerIds.size,
+    active_jobs_count: activeJobsResult.count ?? 0,
+    repeat_percent: total ? Math.round((repeat / total) * 100) : 0,
   };
 }
 

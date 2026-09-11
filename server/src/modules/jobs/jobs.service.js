@@ -16,9 +16,10 @@ import * as settingsService from '../settings/settings.service.js';
 
 const JOB_LIST_SELECT = `
   *,
-  customer:customers!customer_id(id, name, email, phone, company),
+  customer:customers!customer_id(id, name, email, phone, company, network_folder),
   stage:stages!stage_id(id, name, slug, color, position, is_default, is_final),
-  assignee:profiles!assigned_to(id, full_name, email, role)
+  assignee:profiles!assigned_to(id, full_name, email, role),
+  artworks:job_artworks(id, file_name, file_url, file_type, version, is_approved, network_path, created_at, uploaded_by, size_bytes)
 `;
 
 const JOB_DETAIL_SELECT = `

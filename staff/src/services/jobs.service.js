@@ -5,8 +5,8 @@ export async function listStages() {
   return data.data;
 }
 
-export async function listUsers() {
-  const { data } = await api.get('/api/users');
+export async function listUsers(params = {}) {
+  const { data } = await api.get('/api/users', { params: params.lite ? { lite: 1 } : undefined });
   return data.data;
 }
 

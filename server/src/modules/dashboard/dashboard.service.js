@@ -20,23 +20,29 @@ function weekFromToday() {
 }
 
 export async function getAdminDashboard() {
+  const until = weekFromToday();
+  const today = todayIso();
   const [
-    jobsResult,
+    activeCount,
+    completedCount,
     customersResult,
     stages,
     overdueResult,
     completedWeekResult,
     activity,
     voiceCommands,
+    dueJobsResult,
+    stageJobRows,
   ] = await Promise.all([
-    supabase.from('jobs').select('id, status, stage_id', { count: 'exact' }),
+    supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabase.from('jobs').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
     supabase.from('customers').select('id', { count: 'exact', head: true }),
-    supabase.from('stages').select('*').order('position', { ascending: true }),
+    supabase.from('stages').select('id, name, color, position').order('position', { ascending: true }),
     supabase
       .from('jobs')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'active')
-      .lt('due_date', todayIso()),
+      .lt('due_date', today),
     supabase
       .from('jobs')
       .select('id', { count: 'exact', head: true })
@@ -50,19 +56,36 @@ export async function getAdminDashboard() {
       .limit(30),
     supabase
       .from('voice_commands')
-      .select('*')
+      .select(
+        'id, transcript, intent, action, status, created_at, user:profiles!user_id(id, full_name), job:jobs!job_id(id, job_number)'
+      )
       .order('created_at', { ascending: false })
-      .limit(10),
+      .limit(20),
+    supabase
+      .from('jobs')
+      .select(
+        'id, job_number, title, due_date, priority, stage_id, status, customer:customers!customer_id(id, name), stage:stages!stage_id(id, name, color), assignee:profiles!assigned_to(id, full_name)'
+      )
+      .eq('status', 'active')
+      .not('due_date', 'is', null)
+      .lte('due_date', until)
+      .order('due_date', { ascending: true })
+      .limit(40),
+    supabase.from('jobs').select('stage_id').eq('status', 'active'),
   ]);
 
-  const jobs = unwrap(jobsResult, 'Failed to load jobs');
-  const stageRows = unwrap(stages, 'Failed to load stages');
+  const stageRows = unwrap(stages, 'Failed to load stages') || [];
+  const stageCounts = new Map();
+  for (const row of unwrap(stageJobRows, 'Failed to load stage counts') || []) {
+    if (!row.stage_id) continue;
+    stageCounts.set(row.stage_id, (stageCounts.get(row.stage_id) || 0) + 1);
+  }
 
-  const jobs_per_stage = (stageRows || []).map((stage) => ({
+  const jobs_per_stage = stageRows.map((stage) => ({
     stage_id: stage.id,
     name: stage.name,
     color: stage.color,
-    count: (jobs || []).filter((job) => job.stage_id === stage.id).length,
+    count: stageCounts.get(stage.id) || 0,
   }));
 
   const staffMap = new Map();
@@ -76,18 +99,26 @@ export async function getAdminDashboard() {
     staffMap.set(key, current);
   });
 
+  const dueJobs = unwrap(dueJobsResult, 'Failed to load due jobs') || [];
+  const due_today = dueJobs.filter((job) => job.due_date === today);
+  const overdue = dueJobs.filter((job) => job.due_date && job.due_date < today);
+  const due_soon = dueJobs;
+
   return {
     totals: {
-      jobs: jobsResult.count ?? (jobs || []).length,
+      jobs: (activeCount.count || 0) + (completedCount.count || 0),
       customers: customersResult.count ?? 0,
-      active: (jobs || []).filter((job) => job.status === 'active').length,
-      completed: (jobs || []).filter((job) => job.status === 'completed').length,
+      active: activeCount.count ?? 0,
+      completed: completedCount.count ?? 0,
     },
     jobs_per_stage,
     overdue_count: overdueResult.count ?? 0,
     completed_this_week: completedWeekResult.count ?? 0,
     staff_activity: Array.from(staffMap.values()),
     recent_voice_commands: unwrap(voiceCommands, 'Failed to load voice commands') || [],
+    due_today,
+    overdue,
+    due_soon,
   };
 }
 
@@ -149,7 +180,8 @@ export async function getStaffDashboard(userId) {
             .from('job_stage_history')
             .select('job_id, created_at')
             .in('job_id', ids)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .limit(Math.min(ids.length * 3, 400)),
           'Failed to load stage history'
         )
       : [],

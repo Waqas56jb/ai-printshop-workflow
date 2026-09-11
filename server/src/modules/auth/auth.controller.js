@@ -8,6 +8,9 @@ export const registerStaff = asyncHandler(async (req, res) => {
 });
 
 export const me = asyncHandler(async (req, res) => {
+  if (req.user?.profile) {
+    return sendOk(res, req.user.profile, 'Current user');
+  }
   const profile = await authService.getMe(req.user.id);
   return sendOk(res, profile, 'Current user');
 });

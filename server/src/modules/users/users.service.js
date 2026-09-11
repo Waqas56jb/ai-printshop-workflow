@@ -28,18 +28,36 @@ export async function getUser(id) {
   return user;
 }
 
-export async function listUsers() {
-  const users = unwrap(
-    await supabase.from('profiles').select('*').order('created_at', { ascending: true }),
-    'Failed to list users'
-  ) || [];
+export async function listUsers({ lite = false } = {}) {
+  const users =
+    unwrap(
+      await supabase
+        .from('profiles')
+        .select(
+          lite
+            ? 'id, full_name, email, role, is_active, job_title'
+            : '*'
+        )
+        .order('created_at', { ascending: true }),
+      'Failed to list users'
+    ) || [];
+
+  if (lite) {
+    return users.map((user) => ({
+      ...user,
+      active_jobs: 0,
+      done_this_week: 0,
+      voice_today: 0,
+      omi_last_heard_at: null,
+    }));
+  }
 
   const weekStart = startOfWeek().toISOString();
   const dayStart = startOfDay().toISOString();
 
   const [jobs, voices, devices] = await Promise.all([
     unwrap(
-      await supabase.from('jobs').select('id, assigned_to, status, completed_at'),
+      await supabase.from('jobs').select('id, assigned_to, status, completed_at').in('status', ['active', 'completed']),
       'Failed to load jobs'
     ),
     unwrap(

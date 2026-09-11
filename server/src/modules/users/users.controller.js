@@ -2,8 +2,9 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 import { sendOk } from '../../utils/ApiResponse.js';
 import * as usersService from './users.service.js';
 
-export const list = asyncHandler(async (_req, res) => {
-  const users = await usersService.listUsers();
+export const list = asyncHandler(async (req, res) => {
+  const lite = req.query.lite === '1' || req.query.lite === 'true';
+  const users = await usersService.listUsers({ lite });
   return sendOk(res, users, 'Users retrieved');
 });
 

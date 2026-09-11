@@ -1,30 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as dashboardService from '../services/dashboard.service.js';
-import { addDaysIso, isSameDay, isToday, todayIso } from '../utils/date.js';
+import { isSameDay } from '../utils/date.js';
+import { readCache, writeCache } from '../utils/pageCache.js';
+
+const CACHE_KEY = 'admin-dashboard';
 
 export function useDashboard() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cached = readCache(CACHE_KEY);
+  const [data, setData] = useState(cached);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState(null);
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async ({ silent = false } = {}) => {
+    if (!silent && !readCache(CACHE_KEY)) setLoading(true);
     try {
-      const [admin, jobsResult, voiceResult] = await Promise.all([
-        dashboardService.getAdminDashboard(),
-        dashboardService.listJobs({ status: 'active', limit: 100, page: 1 }),
-        dashboardService.listVoiceHistory({ limit: 20, page: 1 }),
-      ]);
-
-      const jobs = jobsResult.items || [];
-      const voiceItems = voiceResult.items || [];
-      const today = todayIso();
-      const until = addDaysIso(3);
-
-      const dueToday = jobs.filter((job) => isToday(job.due_date));
-      const overdue = jobs.filter((job) => job.due_date && job.due_date < today);
-      const dueSoon = jobs
-        .filter((job) => job.due_date && job.due_date <= until)
-        .sort((a, b) => a.due_date.localeCompare(b.due_date));
+      const admin = await dashboardService.getAdminDashboard();
+      const voiceItems = admin.recent_voice_commands || [];
+      const dueSoon = admin.due_soon || [];
+      const dueToday = admin.due_today || [];
+      const overdue = admin.overdue || [];
 
       const overdueByStage = overdue.reduce((acc, job) => {
         const key = job.stage?.id || job.stage_id;
@@ -35,13 +29,11 @@ export function useDashboard() {
       const voiceToday = voiceItems.filter((item) => isSameDay(item.created_at));
       const pendingVoice = voiceItems.filter((item) => item.status === 'pending_confirmation');
       const executed = voiceItems.filter((item) => item.status === 'executed').length;
-      const understoodPct = voiceItems.length
-        ? Math.round((executed / voiceItems.length) * 100)
-        : 0;
+      const understoodPct = voiceItems.length ? Math.round((executed / voiceItems.length) * 100) : 0;
 
-      setData({
+      const next = {
         admin,
-        jobs,
+        jobs: dueSoon,
         stages: admin.jobs_per_stage || [],
         totals: admin.totals || {},
         dueToday,
@@ -54,7 +46,9 @@ export function useDashboard() {
         voiceCommands: voiceItems,
         staff: admin.staff_activity || [],
         understoodPct,
-      });
+      };
+      writeCache(CACHE_KEY, next);
+      setData(next);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load dashboard');
@@ -64,7 +58,7 @@ export function useDashboard() {
   }, []);
 
   useEffect(() => {
-    refetch();
+    refetch({ silent: Boolean(cached) });
   }, [refetch]);
 
   return { data, loading, error, refetch };

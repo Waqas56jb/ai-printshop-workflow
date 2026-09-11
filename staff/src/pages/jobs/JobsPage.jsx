@@ -60,7 +60,7 @@ export default function JobsPage() {
   }, [filters.customer]);
 
   useEffect(() => {
-    Promise.all([listStages(), listUsers(), getStaffDashboard(), listJobs({ status: 'completed', page: 1, limit: 1 })])
+    Promise.all([listStages(), listUsers({ lite: true }), getStaffDashboard(), listJobs({ status: 'completed', page: 1, limit: 1 })])
       .then(([stageRows, userRows, dashboard, completed]) => {
         setStages(stageRows || []);
         setUsers((userRows || []).filter((user) => user.is_active !== false));
@@ -72,7 +72,7 @@ export default function JobsPage() {
         setCounts(next);
       })
       .catch(() => {});
-  }, [jobs]);
+  }, []);
 
   const onLive = useCallback(() => {
     refetch();
