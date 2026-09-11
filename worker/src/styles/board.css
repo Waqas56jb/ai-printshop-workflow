@@ -165,13 +165,12 @@ svg{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-lin
   border-radius:99px;display:grid;place-items:center;flex:none;
 }
 .col-head .n.zero{background:var(--card-2);color:var(--text-3)}
-.cards{display:flex;flex-direction:column;gap:.45em;padding:0 .5em .55em;overflow:hidden;flex:1;min-height:0}
+.cards{display:flex;flex-direction:column;gap:.45em;padding:0 .5em .55em;overflow-x:hidden;overflow-y:auto;flex:1;min-height:0}
 .empty-col{
   flex:1;display:grid;place-items:center;color:var(--text-3);font-size:.78em;font-weight:550;
   letter-spacing:.06em;text-transform:uppercase;border:1px dashed var(--line);border-radius:var(--r);
   min-height:4.5em;
 }
-.more{color:var(--text-3);font-size:.78em;text-align:center;padding:.15em;font-weight:600}
 
 .card{
   background:var(--card);
@@ -218,14 +217,23 @@ svg{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-lin
   width:1.45em;height:1.45em;border-radius:50%;background:var(--card-2);color:var(--text-2);
   font-size:.68em;font-weight:700;display:grid;place-items:center;flex:none;
 }
-.card .art{display:inline-flex;align-items:center;gap:.22em;flex:none}
-.card .art.ok{color:var(--green)}
-.card .art.no{color:var(--text-3)}
+.card .arts{display:flex;flex-wrap:wrap;gap:.28em;margin-top:.2em}
+.card .thumb{
+  width:3.1em;height:3.1em;border-radius:.35em;overflow:hidden;background:var(--card-2);
+  border:1px solid rgba(255,255,255,.08);display:grid;place-items:center;flex:none;
+}
+.card .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.card .thumb.ok{box-shadow:0 0 0 1.5px var(--green)}
+.card .thumb .file{
+  color:var(--text-2);font-size:.48em;font-weight:650;line-height:1.15;text-align:center;
+  padding:.2em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+}
 .card.moved{animation:moved 1.8s ease-out 1}
 @keyframes moved{0%{background:rgba(226,58,134,.32);transform:scale(1.015)}100%{background:var(--card);transform:none}}
 [data-size="large"] .card{padding:.7em .75em;gap:.22em}
 [data-size="large"] .card .jn{font-size:1.12em}
 [data-size="large"] .card .title{font-size:1em}
+[data-size="large"] .card .thumb{width:3.8em;height:3.8em}
 
 .foot{display:flex;align-items:center;gap:var(--u);min-width:0;color:var(--text-2);font-size:.82em}
 .tick{

@@ -1,19 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatDueLabel } from '../utils/date.js';
 
-function ArtIcon({ approved }) {
-  if (approved) {
-    return (
-      <svg viewBox="0 0 24 24">
-        <path d="m5 12 5 5L20 7" />
-      </svg>
-    );
-  }
+function isImage(file) {
+  const type = (file.file_type || '').toLowerCase();
+  const name = (file.file_name || '').toLowerCase();
+  return type.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/.test(name);
+}
+
+function ArtworkThumb({ file }) {
+  const [broken, setBroken] = useState(false);
+  const showImage = isImage(file) && file.file_url && !broken;
+
   return (
-    <svg viewBox="0 0 24 24">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="m21 15-5-5L5 21" />
-    </svg>
+    <div className={`thumb${file.is_approved ? ' ok' : ''}`}>
+      {showImage ? (
+        <img src={file.file_url} alt={file.file_name || 'Artwork'} onError={() => setBroken(true)} />
+      ) : (
+        <span className="file">{file.file_name || 'File'}</span>
+      )}
+    </div>
+  );
+}
+
+function ArtworkThumbs({ files }) {
+  if (!files.length) return null;
+
+  return (
+    <div className="arts">
+      {files.map((file) => (
+        <ArtworkThumb key={file.id} file={file} />
+      ))}
+    </div>
   );
 }
 
@@ -37,6 +54,7 @@ export function JobCard({ job, stageId, stageName, settings, prevJobs }) {
   const showCustomer = settings?.show_customer !== false;
   const showDue = settings?.show_due !== false;
   const flashOverdue = Boolean(settings?.overdue_highlight && job.is_overdue);
+  const files = Array.isArray(job.artworks) ? job.artworks : [];
 
   const classes = ['card'];
   if (job.is_overdue) classes.push('over');
@@ -47,30 +65,6 @@ export function JobCard({ job, stageId, stageName, settings, prevJobs }) {
   const prio = job.priority === 'urgent' || job.priority === 'high' ? job.priority : null;
   const due = formatDueLabel(job.due_date, { ready });
 
-  let art = null;
-  if (job.has_approved_artwork) {
-    art = (
-      <span className="art ok">
-        <ArtIcon approved />
-        Art
-      </span>
-    );
-  } else if (job.artworks_count > 0) {
-    art = (
-      <span className="art">
-        <ArtIcon />
-        {job.artworks_count}
-      </span>
-    );
-  } else {
-    art = (
-      <span className="art no">
-        <ArtIcon />
-        —
-      </span>
-    );
-  }
-
   return (
     <article className={classes.join(' ')}>
       <div className="card-top">
@@ -79,10 +73,10 @@ export function JobCard({ job, stageId, stageName, settings, prevJobs }) {
       </div>
       {showCustomer && job.customer_name ? <div className="cust">{job.customer_name}</div> : null}
       <div className="title">{job.title}</div>
+      <ArtworkThumbs files={files} />
       <div className="l3">
         {job.assigned_initials ? <span className="who">{job.assigned_initials}</span> : null}
         <span className="qty num">×{job.quantity}</span>
-        {art}
         {showDue && due ? <span className="due">{due}</span> : null}
       </div>
     </article>

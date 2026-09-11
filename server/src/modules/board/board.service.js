@@ -49,7 +49,28 @@ function isDeliveredStage(stage) {
   return Boolean(stage?.is_final) || stage?.slug === 'delivered';
 }
 
-function includeJobOnBoard(job, stage, hideHours) {
+const DUMMY_BOARD_JOBS = new Set([
+  'fit zone|member flyers',
+  'fatima noor|shop stickers',
+  'metro gym|gym banners',
+  'ali hassan|hoodie restock',
+  'ahmed raza|business cards',
+  'sarah khan|50 t-shirts',
+  'verify customer|verify tees',
+  'verify print co|verify hoodies',
+]);
+
+function isDummyBoardJob(job, art) {
+  const customer = (job.customer?.name || '').trim().toLowerCase();
+  const title = (job.title || '').trim().toLowerCase();
+  if (customer.startsWith('crud check') || title.startsWith('crud check')) return true;
+  if (customer.startsWith('verify ') || title.startsWith('verify ')) return true;
+  if (art?.files?.length || art?.count > 0) return false;
+  return DUMMY_BOARD_JOBS.has(`${customer}|${title}`);
+}
+
+function includeJobOnBoard(job, stage, hideHours, art) {
+  if (isDummyBoardJob(job, art)) return false;
   if (job.status === 'active') return true;
   if (job.status !== 'completed' || !isDeliveredStage(stage)) return false;
   if (!hideHours || hideHours <= 0) return true;
@@ -57,10 +78,21 @@ function includeJobOnBoard(job, stage, hideHours) {
   return new Date(job.completed_at).getTime() >= Date.now() - hideHours * 3600000;
 }
 
-function mapBoardJob(job, stage, art = { count: 0, approved: false }) {
+function mapArtwork(row) {
+  return {
+    id: row.id,
+    file_url: row.file_url || null,
+    file_name: row.file_name || null,
+    file_type: row.file_type || null,
+    is_approved: Boolean(row.is_approved),
+  };
+}
+
+function mapBoardJob(job, stage, art = { count: 0, approved: false, files: [] }) {
   const days_left = daysBetween(job.due_date);
   const is_overdue = days_left !== null && days_left < 0 && !stage.is_final;
   const is_due_today = days_left === 0 && !stage.is_final;
+  const files = art.files || [];
   return {
     id: job.id,
     job_number: job.job_number,
@@ -73,8 +105,9 @@ function mapBoardJob(job, stage, art = { count: 0, approved: false }) {
     is_overdue,
     is_due_today,
     assigned_initials: initials(job.assignee?.full_name),
-    artworks_count: art.count,
-    has_approved_artwork: art.approved,
+    artworks: files,
+    artworks_count: files.length || art.count || 0,
+    has_approved_artwork: art.approved || files.some((file) => file.is_approved),
     updated_at: job.updated_at,
   };
 }
@@ -144,15 +177,20 @@ export async function getBoardDisplay() {
   const jobIds = (jobs || []).map((job) => job.id);
   const artworks = jobIds.length
     ? unwrap(
-        await supabase.from('job_artworks').select('job_id, is_approved').in('job_id', jobIds),
+        await supabase
+          .from('job_artworks')
+          .select('id, job_id, file_url, file_name, file_type, is_approved, created_at')
+          .in('job_id', jobIds)
+          .order('created_at', { ascending: true }),
         'Failed to load artwork'
       )
     : [];
 
   const artByJob = (artworks || []).reduce((acc, row) => {
-    const current = acc.get(row.job_id) || { count: 0, approved: false };
+    const current = acc.get(row.job_id) || { count: 0, approved: false, files: [] };
     current.count += 1;
     if (row.is_approved) current.approved = true;
+    current.files.push(mapArtwork(row));
     acc.set(row.job_id, current);
     return acc;
   }, new Map());
@@ -160,7 +198,7 @@ export async function getBoardDisplay() {
   const visibleStages = (stages || []).filter((stage) => stage.show_on_board !== false);
   const columns = visibleStages.map((stage) => {
     const columnJobs = (jobs || [])
-      .filter((job) => job.stage_id === stage.id && includeJobOnBoard(job, stage, hideHours))
+      .filter((job) => job.stage_id === stage.id && includeJobOnBoard(job, stage, hideHours, artByJob.get(job.id)))
       .map((job) => mapBoardJob(job, stage, artByJob.get(job.id)))
       .sort(sortBoardJobs);
     return {
@@ -172,7 +210,9 @@ export async function getBoardDisplay() {
     };
   });
 
-  const active = (jobs || []).filter((job) => job.status === 'active');
+  const active = (jobs || []).filter(
+    (job) => job.status === 'active' && !isDummyBoardJob(job, artByJob.get(job.id))
+  );
   const stageById = new Map((stages || []).map((stage) => [stage.id, stage]));
   const inProgress = active.filter((job) => !stageById.get(job.stage_id)?.is_final);
   const weekStart = startOfWeek();
@@ -225,7 +265,11 @@ export async function getBoardDisplay() {
         return days !== null && days < 0;
       }).length,
       delivered_this_week: (jobs || []).filter(
-        (job) => job.status === 'completed' && job.completed_at && new Date(job.completed_at) >= weekStart
+        (job) =>
+          job.status === 'completed' &&
+          !isDummyBoardJob(job, artByJob.get(job.id)) &&
+          job.completed_at &&
+          new Date(job.completed_at) >= weekStart
       ).length,
     },
     stages: columns,
