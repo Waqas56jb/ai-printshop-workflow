@@ -222,7 +222,7 @@ export function createToolExecutor(overrides = {}) {
               priority: args.priority,
             },
             user.id,
-            { source: 'voice' }
+            { source: 'voice', role: user.role || 'staff' }
           );
           await record(user, 'create_job', `create job for ${customerName}`, { job_id: job.id });
           return { ok: true, result: compactJob(job) };

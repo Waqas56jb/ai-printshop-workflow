@@ -104,7 +104,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false })
           stage_id: stage?.id,
         },
         userId,
-        { source: 'voice' }
+        { source: 'voice', role: 'staff' }
       );
       return {
         result: job,

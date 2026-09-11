@@ -119,7 +119,7 @@ export async function getStaffDashboard(userId) {
     supabase
       .from('jobs')
       .select(
-        'id, job_number, title, quantity, priority, due_date, assigned_to, stage_id, status, created_at, customer:customers!customer_id(id, name), stage:stages!stage_id(id, name, slug, color, position, is_final)'
+        'id, job_number, title, quantity, priority, due_date, assigned_to, created_by, stage_id, status, created_at, customer:customers!customer_id(id, name), stage:stages!stage_id(id, name, slug, color, position, is_final)'
       )
       .eq('status', 'active')
       .order('due_date', { ascending: true, nullsFirst: false }),
@@ -198,6 +198,7 @@ export async function getStaffDashboard(userId) {
       priority: job.priority,
       due_date: job.due_date,
       assigned_to: job.assigned_to,
+      created_by: job.created_by,
       customer_name: job.customer?.name || null,
       customer: job.customer,
       stage: job.stage
@@ -221,7 +222,7 @@ export async function getStaffDashboard(userId) {
   }
 
   const enriched = jobs.map(enrich);
-  const my_jobs = enriched.filter((job) => job.assigned_to === userId);
+  const my_jobs = enriched.filter((job) => job.assigned_to === userId || job.created_by === userId);
   const due_today = enriched.filter((job) => job.due_date === today);
   const overdue = enriched.filter((job) => job.is_overdue);
 

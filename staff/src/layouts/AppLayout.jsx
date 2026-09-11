@@ -68,6 +68,7 @@ export function AppLayout() {
         open={drawer.open}
         prefill={drawer.prefill}
         users={users.length ? users : profile ? [profile] : []}
+        defaultAssignee={profile?.id || ''}
         onClose={() => setDrawer({ open: false, prefill: null })}
         onSaved={(saved) => {
           toast(`Job ${saved.job_number} created`);

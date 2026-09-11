@@ -103,16 +103,22 @@ export function JobDrawer({ open, job, prefillCustomer, users = [], onClose, onS
         due_date: form.due_date || null,
         priority: form.priority,
         assigned_to: form.assigned_to || null,
-        price: form.price === '' ? null : Number(form.price),
+        price: form.price === '' || !Number.isFinite(Number(form.price)) ? null : Number(form.price),
         size_details: form.size_details || null,
       };
 
       const saved = job ? await updateJob(job.id, payload) : await createJob(payload);
 
-      for (const file of files) {
-        await uploadArtwork(saved.id, file, (pct) => {
-          setProgress((current) => ({ ...current, [file.name]: pct }));
-        });
+      try {
+        for (const file of files) {
+          await uploadArtwork(saved.id, file, (pct) => {
+            setProgress((current) => ({ ...current, [file.name]: pct }));
+          });
+        }
+      } catch (uploadErr) {
+        onSaved(saved, job ? 'updated' : 'created');
+        setError(uploadErr.response?.data?.message || 'Job saved, but artwork upload failed');
+        return;
       }
 
       onSaved(saved, job ? 'updated' : 'created');

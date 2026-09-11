@@ -3,12 +3,17 @@ import { sendCreated, sendOk } from '../../utils/ApiResponse.js';
 import * as jobsService from './jobs.service.js';
 
 export const list = asyncHandler(async (req, res) => {
-  const result = await jobsService.listJobs(req.query);
+  const filters = { ...req.query };
+  if (filters.mine) {
+    filters.assignedToOrCreatedBy = req.user.id;
+    delete filters.assigned;
+  }
+  const result = await jobsService.listJobs(filters);
   return sendOk(res, result, 'Jobs retrieved');
 });
 
 export const create = asyncHandler(async (req, res) => {
-  const job = await jobsService.createJob(req.body, req.user.id);
+  const job = await jobsService.createJob(req.body, req.user.id, { role: req.user.role });
   return sendCreated(res, job, 'Job created');
 });
 

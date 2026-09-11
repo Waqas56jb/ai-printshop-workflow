@@ -53,7 +53,10 @@ export async function listJobs(filters) {
 
   if (stage) query = query.eq('stage_id', stage);
   if (customer) query = query.eq('customer_id', customer);
-  if (assigned === 'unassigned') query = query.is('assigned_to', null);
+  if (filters.assignedToOrCreatedBy) {
+    const uid = filters.assignedToOrCreatedBy;
+    query = query.or(`assigned_to.eq.${uid},created_by.eq.${uid}`);
+  } else if (assigned === 'unassigned') query = query.is('assigned_to', null);
   else if (assigned) query = query.eq('assigned_to', assigned);
   if (status) query = query.eq('status', status);
   if (priority) query = query.eq('priority', priority);
@@ -158,6 +161,9 @@ export async function createJob(payload, userId, options = {}) {
       ? payload.due_date
       : addDaysIso(settings.default_due_days ?? 3);
 
+  const assigned_to =
+    payload.assigned_to || (options.role === 'staff' ? userId : null);
+
   const job_number = await generateJobNumber();
   const created = unwrap(
     await supabase
@@ -173,7 +179,7 @@ export async function createJob(payload, userId, options = {}) {
         price: payload.price ?? null,
         priority,
         stage_id: stage.id,
-        assigned_to: payload.assigned_to ?? null,
+        assigned_to,
         due_date,
         notes: payload.notes ?? null,
         status: 'active',

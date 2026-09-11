@@ -8,11 +8,13 @@ import { CustomersTable } from '../../components/customers/CustomersTable.jsx';
 import { CustomersToolbar } from '../../components/customers/CustomersToolbar.jsx';
 import { JobDrawer } from '../../components/jobs/JobDrawer.jsx';
 import { useCustomer, useCustomers } from '../../hooks/useCustomers.js';
+import { useAuth } from '../../hooks/useAuth.js';
 import { listUsers } from '../../services/jobs.service.js';
 
 export default function CustomersPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState('recent');
@@ -122,6 +124,7 @@ export default function CustomersPage() {
         open={drawerOpen}
         prefillCustomer={selectedForDrawer()}
         users={users}
+        defaultAssignee={profile?.id || ''}
         onClose={() => {
           setDrawerOpen(false);
           setPrefill(null);

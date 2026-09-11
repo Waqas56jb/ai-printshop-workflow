@@ -188,6 +188,7 @@ export default function JobsPage() {
         open={drawerOpen}
         job={drawerJob}
         users={users}
+        defaultAssignee={profile?.id || ''}
         onClose={closeDrawer}
         onSaved={(saved, mode) => {
           toast(mode === 'created' ? `Job ${saved.job_number} created` : `Job ${saved.job_number} updated`);

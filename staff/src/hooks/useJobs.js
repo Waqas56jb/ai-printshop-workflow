@@ -18,7 +18,8 @@ export function useJobs(params) {
         search: params.search || undefined,
         priority: params.priority || undefined,
         customer: params.customer || undefined,
-        assigned: params.assigned || undefined,
+        assigned: params.mine ? undefined : params.assigned || undefined,
+        mine: params.mine || undefined,
         ...duePresetToRange(params.due),
       };
 
@@ -53,7 +54,7 @@ export function useJobs(params) {
     } finally {
       setLoading(false);
     }
-  }, [params.stage, params.priority, params.assigned, params.due, params.search, params.page, params.customer]);
+  }, [params.stage, params.priority, params.assigned, params.mine, params.due, params.search, params.page, params.customer]);
 
   useEffect(() => {
     refetch();

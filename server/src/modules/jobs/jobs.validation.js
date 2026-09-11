@@ -8,6 +8,7 @@ export const jobListQuery = z.object({
   stage: z.string().uuid().optional(),
   customer: z.string().uuid().optional(),
   assigned: z.union([z.literal('unassigned'), z.string().uuid()]).optional(),
+  mine: z.coerce.boolean().optional(),
   status: z.enum(['active', 'completed', 'cancelled']).optional(),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
   due_from: z.string().optional(),
@@ -17,17 +18,26 @@ export const jobListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+function emptyToNull(value) {
+  if (value === '' || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export const createJobBody = z.object({
   customer_id: z.string().uuid(),
   title: z.string().min(1),
   product_type: z.string().nullable().optional(),
-  quantity: z.number().int().positive().default(1),
+  quantity: z.coerce.number().int().positive().default(1),
   print_type: z.string().nullable().optional(),
   size_details: z.string().nullable().optional(),
-  price: z.number().nullable().optional(),
+  price: z.preprocess(emptyToNull, z.number().nullable().optional()),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
   stage_id: z.string().uuid().optional(),
-  assigned_to: z.string().uuid().nullable().optional(),
+  assigned_to: z
+    .union([z.string().uuid(), z.literal(''), z.null()])
+    .optional()
+    .transform((value) => value || null),
   due_date: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 });

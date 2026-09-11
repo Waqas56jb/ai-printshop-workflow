@@ -21,7 +21,16 @@ const emptyForm = {
   size_details: '',
 };
 
-export function JobDrawer({ open, job, prefillCustomer, prefill, users = [], onClose, onSaved }) {
+export function JobDrawer({
+  open,
+  job,
+  prefillCustomer,
+  prefill,
+  users = [],
+  defaultAssignee = '',
+  onClose,
+  onSaved,
+}) {
   const [form, setForm] = useState(emptyForm);
   const [matches, setMatches] = useState([]);
   const [showCombo, setShowCombo] = useState(false);
@@ -42,7 +51,7 @@ export function JobDrawer({ open, job, prefillCustomer, prefill, users = [], onC
         print_type: job.print_type || 'Screen print',
         due_date: job.due_date || '',
         priority: job.priority || 'normal',
-        assigned_to: job.assigned_to || '',
+        assigned_to: job.assigned_to || defaultAssignee || '',
         price: job.price ?? '',
         size_details: job.size_details || '',
       });
@@ -56,14 +65,15 @@ export function JobDrawer({ open, job, prefillCustomer, prefill, users = [], onC
         quantity: prefill?.quantity ?? '',
         due_date: prefill?.due_date || '',
         priority: prefill?.priority || 'normal',
+        assigned_to: prefill?.assigned_to || defaultAssignee || '',
       });
     } else {
-      setForm(emptyForm);
+      setForm({ ...emptyForm, assigned_to: defaultAssignee || '' });
     }
     setFiles([]);
     setProgress({});
     setError('');
-  }, [open, job, prefillCustomer, prefill]);
+  }, [open, job, prefillCustomer, prefill, defaultAssignee]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -107,17 +117,23 @@ export function JobDrawer({ open, job, prefillCustomer, prefill, users = [], onC
         print_type: form.print_type || null,
         due_date: form.due_date || null,
         priority: form.priority,
-        assigned_to: form.assigned_to || null,
-        price: form.price === '' ? null : Number(form.price),
+        assigned_to: form.assigned_to || defaultAssignee || null,
+        price: form.price === '' || !Number.isFinite(Number(form.price)) ? null : Number(form.price),
         size_details: form.size_details || null,
       };
 
       const saved = job ? await updateJob(job.id, payload) : await createJob(payload);
 
-      for (const file of files) {
-        await uploadArtwork(saved.id, file, (pct) => {
-          setProgress((current) => ({ ...current, [file.name]: pct }));
-        });
+      try {
+        for (const file of files) {
+          await uploadArtwork(saved.id, file, (pct) => {
+            setProgress((current) => ({ ...current, [file.name]: pct }));
+          });
+        }
+      } catch (uploadErr) {
+        onSaved(saved, job ? 'updated' : 'created');
+        setError(uploadErr.response?.data?.message || 'Job saved, but artwork upload failed');
+        return;
       }
 
       onSaved(saved, job ? 'updated' : 'created');
