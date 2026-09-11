@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Clock, LayoutList, Mic, Monitor, Users } from 'lucide-react';
+import { Clock, LayoutList, LogOut, Mic, Monitor, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { useAuth } from '../hooks/useAuth.js';
@@ -26,7 +26,7 @@ function NavItem({ to, label, icon: Icon, end, badge, onClick }) {
 }
 
 export function Sidebar() {
-  const { profile } = useAuth();
+  const { profile, logout } = useAuth();
   const [pending, setPending] = useState(0);
   const navOpen = useUiStore((state) => state.navOpen);
   const closeNav = useUiStore((state) => state.closeNav);
@@ -67,6 +67,19 @@ export function Sidebar() {
           {profile?.full_name || 'Staff'}
           <span>{profile?.email}</span>
         </div>
+        <button
+          type="button"
+          className="sidebar-logout"
+          onClick={() => {
+            closeNav();
+            logout();
+          }}
+          aria-label="Log out"
+          title="Log out"
+        >
+          <LogOut />
+          <span>Log out</span>
+        </button>
       </div>
     </aside>
   );

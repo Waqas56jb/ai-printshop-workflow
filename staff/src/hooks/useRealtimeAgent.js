@@ -130,6 +130,7 @@ export function useRealtimeAgent() {
     store.setStatus('off');
     store.setOpen(false);
     store.setMuted(false);
+    store.setError('');
   }, []);
 
   stopRef.current = stop;
