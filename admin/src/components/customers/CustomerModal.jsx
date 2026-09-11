@@ -3,14 +3,9 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
 import { createCustomer, updateCustomer } from '../../services/jobs.service.js';
+import { defaultNetworkFolder, normalizeNetworkPath, resolveNetworkFolder } from '../../utils/networkPath.js';
 
 const empty = { name: '', company: '', phone: '', email: '', notes: '', network_folder: '' };
-
-function normalizeNetworkPath(value) {
-  return String(value || '')
-    .trim()
-    .replace(/\\+/g, '\\');
-}
 
 function formFromCustomer(customer) {
   if (!customer) return empty;
@@ -20,7 +15,7 @@ function formFromCustomer(customer) {
     phone: customer.phone || '',
     email: customer.email || '',
     notes: customer.notes || '',
-    network_folder: normalizeNetworkPath(customer.network_folder || ''),
+    network_folder: resolveNetworkFolder(customer),
   };
 }
 
@@ -39,7 +34,18 @@ export function CustomerModal({ open, customer, onClose, onSaved }) {
   if (!open) return null;
 
   function setField(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === 'name' || key === 'company') {
+        const previousDefault = defaultNetworkFolder(current);
+        const folderEmpty = !normalizeNetworkPath(current.network_folder);
+        const stillAuto = normalizeNetworkPath(current.network_folder) === previousDefault;
+        if (folderEmpty || stillAuto) {
+          next.network_folder = defaultNetworkFolder(next);
+        }
+      }
+      return next;
+    });
   }
 
   async function handleSubmit(event) {
@@ -54,7 +60,7 @@ export function CustomerModal({ open, customer, onClose, onSaved }) {
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         notes: form.notes.trim() || null,
-        network_folder: normalizeNetworkPath(form.network_folder) || null,
+        network_folder: resolveNetworkFolder(form),
       };
       if (!payload.name) {
         setError('Name is required');
@@ -133,7 +139,7 @@ export function CustomerModal({ open, customer, onClose, onSaved }) {
               className="cust-input"
               value={form.network_folder}
               onChange={(event) => setField('network_folder', event.target.value)}
-              placeholder="P:\CUSTOMER FOLDERS\CUSTOMER NAME"
+              placeholder="Auto from customer name"
             />
           </div>
           <div className="f">

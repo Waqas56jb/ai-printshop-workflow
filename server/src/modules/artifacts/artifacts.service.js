@@ -33,6 +33,27 @@ export function joinNetworkPath(root, relative) {
   return `${base}\\${rel}`;
 }
 
+const CUSTOMER_FOLDERS_ROOT = 'P:\\CUSTOMER FOLDERS';
+
+function sanitizeFolderSegment(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function defaultNetworkFolder(customer) {
+  const label = (sanitizeFolderSegment(customer?.company || customer?.name) || 'CUSTOMER').toUpperCase();
+  return `${CUSTOMER_FOLDERS_ROOT}\\${label}`;
+}
+
+export function resolveNetworkFolder(customer, override) {
+  const fromOverride = String(override || '').trim().replace(/\\+/g, '\\');
+  const fromCustomer = String(customer?.network_folder || '').trim().replace(/\\+/g, '\\');
+  return fromOverride || fromCustomer || defaultNetworkFolder(customer);
+}
+
 async function ensureBucket() {
   const { data: buckets } = await supabase.storage.listBuckets();
   const found = (buckets || []).find((row) => row.name === BUCKET);
@@ -94,7 +115,7 @@ export async function uploadArtifacts(customerId, files, userId, extras = {}) {
   const paths = asList(extras.paths);
   const skus = asList(extras.skus);
   const defaultSku = typeof extras.sku === 'string' ? extras.sku.trim() : '';
-  const networkRoot = String(extras.network_folder || customer.network_folder || '').trim();
+  const networkRoot = resolveNetworkFolder(customer, extras.network_folder);
   const proof_status = ['revision', 'proof', 'approved', 'print_ready'].includes(extras.proof_status)
     ? extras.proof_status
     : 'revision';

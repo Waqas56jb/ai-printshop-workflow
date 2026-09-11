@@ -8,6 +8,7 @@ import {
   uploadArtifacts,
 } from '../../services/artifacts.service.js';
 import { updateCustomer } from '../../services/jobs.service.js';
+import { defaultNetworkFolder, normalizeNetworkPath, resolveNetworkFolder } from '../../utils/networkPath.js';
 import { Button } from '../ui/Button.jsx';
 
 const STATUSES = [
@@ -30,12 +31,6 @@ function sizeLabel(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function normalizeNetworkPath(value) {
-  return String(value || '')
-    .trim()
-    .replace(/\\+/g, '\\');
-}
-
 async function copyText(value) {
   await navigator.clipboard.writeText(value);
 }
@@ -43,24 +38,37 @@ async function copyText(value) {
 export function ClientPack({ customer, onChanged }) {
   const fileRef = useRef(null);
   const folderRef = useRef(null);
+  const ensuringRef = useRef(null);
   const [sku, setSku] = useState('');
-  const [networkFolder, setNetworkFolder] = useState(normalizeNetworkPath(customer?.network_folder || ''));
+  const [networkFolder, setNetworkFolder] = useState(() => resolveNetworkFolder(customer));
   const [status, setStatus] = useState('revision');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [link, setLink] = useState(customer?.share_path ? clientPackUrl(customer.share_path) : '');
 
   useEffect(() => {
-    setNetworkFolder(normalizeNetworkPath(customer?.network_folder || ''));
+    const folder = resolveNetworkFolder(customer);
+    setNetworkFolder(folder);
     setLink(customer?.share_path ? clientPackUrl(customer.share_path) : '');
-  }, [customer?.id, customer?.network_folder, customer?.share_path]);
+
+    if (!customer?.id || normalizeNetworkPath(customer.network_folder)) return;
+    if (ensuringRef.current === customer.id) return;
+    ensuringRef.current = customer.id;
+    updateCustomer(customer.id, { network_folder: folder })
+      .then(() => onChanged?.())
+      .catch(() => {
+        ensuringRef.current = null;
+      });
+  }, [customer?.id, customer?.network_folder, customer?.name, customer?.company, customer?.share_path]);
 
   const files = customer?.artifacts || [];
 
   async function saveFolder() {
     if (!customer?.id) return;
+    const folder = normalizeNetworkPath(networkFolder) || defaultNetworkFolder(customer);
+    setNetworkFolder(folder);
     try {
-      await updateCustomer(customer.id, { network_folder: normalizeNetworkPath(networkFolder) || null });
+      await updateCustomer(customer.id, { network_folder: folder });
       toast('Network folder saved');
       onChanged?.();
     } catch (error) {
@@ -71,11 +79,8 @@ export function ClientPack({ customer, onChanged }) {
   async function upload(list) {
     const selected = Array.from(list || []);
     if (!selected.length || !customer?.id) return;
-    const folder = normalizeNetworkPath(networkFolder);
-    if (!folder) {
-      toast('Enter the store network folder first, e.g. P:\\CUSTOMER FOLDERS\\AVON ATHLETICS-STEPHANIE KIESEL');
-      return;
-    }
+    const folder = resolveNetworkFolder(customer, networkFolder);
+    setNetworkFolder(folder);
     setBusy(true);
     setProgress(0);
     try {
@@ -153,12 +158,15 @@ export function ClientPack({ customer, onChanged }) {
           <span>Store network folder</span>
           <label className="field">
             <input
-              placeholder="P:\CUSTOMER FOLDERS\AVON ATHLETICS-STEPHANIE KIESEL"
               value={networkFolder}
               onChange={(event) => setNetworkFolder(event.target.value)}
               onBlur={saveFolder}
+              title="Auto-filled from customer name — change only if the store folder is different"
             />
           </label>
+          <span className="c" style={{ fontSize: 11.5 }}>
+            Auto-filled from the customer name — edit only if the store folder is different
+          </span>
         </label>
         <label className="f">
           <span>SKU / job name (optional)</span>

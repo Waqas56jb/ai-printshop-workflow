@@ -76,10 +76,16 @@
 .drawer .drop b{color:var(--magenta);font-weight:600}
 .drawer .drop small{display:block;color:var(--ink-3);font-size:12px;margin-top:3px}
 .drawer-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--rule-2)}
-.combo{position:relative}
-.combo-list{position:absolute;left:0;right:0;top:40px;background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r-sm);box-shadow:0 8px 24px rgba(22,26,31,.1);z-index:5;max-height:200px;overflow:auto}
-.combo-list button{display:block;width:100%;text-align:left;padding:8px 11px;font-size:13px}
-.combo-list button:hover{background:var(--paper)}
+.combo{position:relative;z-index:2}
+.combo-list{
+  position:relative;z-index:3;margin-top:6px;background:#fff;border:1px solid var(--rule);
+  border-radius:var(--r-sm);box-shadow:0 10px 28px rgba(22,26,31,.14);max-height:180px;overflow:auto;
+}
+.combo-list button{display:block;width:100%;text-align:left;padding:9px 11px;font-size:13px;background:#fff;color:var(--ink)}
+.combo-list button:hover,.combo-list button:focus{background:var(--paper)}
+.combo-list button + button{border-top:1px solid var(--rule-2)}
+.drawer .combo{isolation:isolate}
+.drawer .combo-list{background:#fff}
 .file-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-2)}
 .skel-row{height:48px;margin:8px 16px}
 

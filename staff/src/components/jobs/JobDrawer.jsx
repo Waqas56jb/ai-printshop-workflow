@@ -207,15 +207,20 @@ export function JobDrawer({
                   setShowCombo(true);
                 }}
                 onFocus={() => setShowCombo(true)}
+                onBlur={() => {
+                  window.setTimeout(() => setShowCombo(false), 150);
+                }}
+                autoComplete="off"
               />
             </label>
-            <span className="hint">Type a new name to create the customer with this job</span>
-            {showCombo && form.customer_name ? (
-              <div className="combo-list">
+            {showCombo && form.customer_name.trim() && !form.customer_id ? (
+              <div className="combo-list" role="listbox">
                 {matches.map((item) => (
                   <button
                     key={item.id}
                     type="button"
+                    role="option"
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => {
                       setField('customer_id', item.id);
                       setField('customer_name', item.name);
@@ -229,6 +234,8 @@ export function JobDrawer({
                 {!exactMatch ? (
                   <button
                     type="button"
+                    role="option"
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => {
                       setField('customer_id', '');
                       setShowCombo(false);
@@ -239,6 +246,7 @@ export function JobDrawer({
                 ) : null}
               </div>
             ) : null}
+            <span className="hint">Type a new name to create the customer with this job</span>
           </div>
           <div className="f">
             <label>Job title</label>

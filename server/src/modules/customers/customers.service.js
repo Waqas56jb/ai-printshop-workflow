@@ -219,6 +219,17 @@ export async function createCustomer(payload, userId) {
     created_by: userId,
     share_token: crypto.randomBytes(16).toString('hex'),
   };
+  if (!String(row.network_folder || '').trim()) {
+    const label = String(row.company || row.name || 'CUSTOMER')
+      .trim()
+      .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase() || 'CUSTOMER';
+    row.network_folder = `P:\\CUSTOMER FOLDERS\\${label}`;
+  } else {
+    row.network_folder = String(row.network_folder).trim().replace(/\\+/g, '\\');
+  }
   const first = await supabase.from('customers').insert(row).select('*').single();
   if (first.error && /share_token|network_folder/i.test(first.error.message || '')) {
     if (/share_token/i.test(first.error.message || '')) delete row.share_token;
