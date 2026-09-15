@@ -61,6 +61,12 @@ export function useBoardVoice(
   const playAudio = useCallback((base64, mime, text) => {
     setSpeaking(true);
     const finish = () => setSpeaking(false);
+    try {
+      audioRef.current?.pause?.();
+      window.speechSynthesis?.cancel?.();
+    } catch {
+      /* ignore */
+    }
     if (base64) {
       try {
         const audio = new Audio(`data:${mime || 'audio/mpeg'};base64,${base64}`);

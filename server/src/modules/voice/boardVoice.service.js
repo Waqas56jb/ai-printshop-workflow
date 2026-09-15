@@ -218,24 +218,25 @@ export async function speak(text) {
   const full = String(text || '').replace(/\s+/g, ' ').trim();
   if (!full) return;
 
-  const gatedOff = settings.tts_enabled === false || settings.voice_tv_speaker === false;
-  let audio = null;
-  if (!gatedOff && (hasBoardSockets() || process.env.VERCEL)) {
-    const voice = settings.voice_tv_voice || settings.voice_agent_voice || 'alloy';
-    audio = await generateSpeech(full, voice);
-  }
+  emitBoardSpeak({ audio_base64: null, mime: 'audio/mpeg', text: full });
 
-  const payload = {
-    audio_base64: audio?.audio_base64 || null,
-    mime: audio?.mime || 'audio/mpeg',
+  const gatedOff = settings.tts_enabled === false || settings.voice_tv_speaker === false;
+  if (gatedOff) return;
+  if (!hasBoardSockets() && !process.env.VERCEL) return;
+
+  const voice = settings.voice_tv_voice || settings.voice_agent_voice || 'alloy';
+  const audio = await generateSpeech(full, voice);
+  if (!audio?.audio_base64) return;
+  emitBoardSpeak({
+    audio_base64: audio.audio_base64,
+    mime: audio.mime || 'audio/mpeg',
     text: full,
-  };
-  emitBoardSpeak(payload);
-  logger.info(`board:speak ${JSON.stringify({ text: full, audio: payload.audio_base64 ? 'present' : null })}`);
+  });
+  logger.info(`board:speak audio attached text="${full}"`);
 }
 
 export async function notify({ transcript, reply, userName, boardAction }) {
   await ticker({ transcript, reply, userName });
   if (boardAction) await dispatchBoardAction(boardAction);
-  await speak(reply);
+  speak(reply).catch((error) => logger.error(`board speak failed: ${error.message}`));
 }

@@ -20,7 +20,7 @@ export function listDebugEvents() {
 const memoryBuffers = new Map();
 const memoryStamps = new Map();
 const inflight = new Map();
-const FLUSH_MS = 1200;
+const FLUSH_MS = 400;
 const MIN_WORDS = 2;
 const SHORT_COMMANDS =
   /^(done|ready|next|back|zoom|yes|yeah|yep|no|nope|stop|hello|hi)$/i;
@@ -62,11 +62,24 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function mergeTranscriptParts(existing, incoming) {
+  const prev = (existing || []).join(' ').replace(/\s+/g, ' ').trim();
+  const next = (incoming || []).join(' ').replace(/\s+/g, ' ').trim();
+  if (!next) return existing || [];
+  if (!prev) return [next];
+  const prevL = prev.toLowerCase();
+  const nextL = next.toLowerCase();
+  if (nextL === prevL) return [prev];
+  if (nextL.startsWith(prevL) || nextL.includes(prevL)) return [next];
+  if (prevL.startsWith(nextL) || prevL.includes(nextL)) return [prev];
+  return [prev, next];
+}
+
 async function appendBuffer(key, texts) {
   const updatedAt = new Date().toISOString();
   const { data, error } = await supabase.from('omi_buffers').select('texts').eq('buffer_key', key).maybeSingle();
   if (!error) {
-    const next = [...(data?.texts || []), ...texts];
+    const next = mergeTranscriptParts(data?.texts || [], texts);
     unwrap(
       await supabase.from('omi_buffers').upsert({
         buffer_key: key,
@@ -78,7 +91,7 @@ async function appendBuffer(key, texts) {
     return { texts: next, updatedAt };
   }
   const current = memoryBuffers.get(key) || [];
-  const next = [...current, ...texts];
+  const next = mergeTranscriptParts(current, texts);
   memoryBuffers.set(key, next);
   memoryStamps.set(key, updatedAt);
   return { texts: next, updatedAt };
@@ -206,7 +219,7 @@ export async function handleWebhook({ uid, sessionId = '', payload }) {
 
   const appended = await appendBuffer(key, texts);
   const combined = appended.texts.join(' ').replace(/\s+/g, ' ').trim();
-  const waitMs = isCompleteSentence(combined) && wordCount(combined) >= MIN_WORDS ? 400 : FLUSH_MS;
+  const waitMs = isCompleteSentence(combined) && wordCount(combined) >= MIN_WORDS ? 180 : FLUSH_MS;
   const pending = flushBuffer({ key, uid, sessionId, waitMs, startedAt: Date.now() });
   inflight.set(key, pending);
   return pending;
