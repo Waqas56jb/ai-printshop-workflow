@@ -41,7 +41,7 @@ export function OmiSetup({ maskedUrl }) {
               Paste this webhook URL, then install it.
             </p>
             <div className="copy">
-              <span>{toPublicApiUrl(maskedUrl) || 'https://ai-printshop-workflow-server.vercel.app/api/omi/webhook?secret=••••'}</span>
+              <span>{toPublicApiUrl(maskedUrl) || 'https://ai-printshop-workflow-production.up.railway.app/api/omi/webhook?secret=••••'}</span>
               <button type="button" onClick={copy} disabled={busy}>
                 Copy
               </button>

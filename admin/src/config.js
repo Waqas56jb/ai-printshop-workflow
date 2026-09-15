@@ -1,8 +1,8 @@
-export const API_URL = (import.meta.env.VITE_API_URL || 'https://ai-printshop-workflow-server.vercel.app').replace(
+export const API_URL = (import.meta.env.VITE_API_URL || 'https://ai-printshop-workflow-production.up.railway.app').replace(
   /\/$/,
   ''
 );
-export const PUBLIC_API_URL = 'https://ai-printshop-workflow-server.vercel.app';
+export const PUBLIC_API_URL = 'https://ai-printshop-workflow-production.up.railway.app';
 
 export function toPublicApiUrl(url) {
   if (!url) return url;

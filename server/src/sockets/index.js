@@ -29,7 +29,17 @@ async function resolveSocketUser(token) {
 export function initSockets(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: env.clientOrigins,
+      // Mirror app.js's Express CORS check exactly — Socket.IO does its own
+      // separate CORS negotiation, so leaving this as a flat allowlist (no
+      // *.vercel.app fallback) silently rejected the deployed frontends'
+      // socket connections even though their plain REST calls worked fine.
+      origin(origin, callback) {
+        if (!origin || env.clientOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`Origin not allowed: ${origin}`));
+      },
       credentials: true,
     },
   });
