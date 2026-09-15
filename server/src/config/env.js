@@ -13,6 +13,7 @@ const envSchema = z.object({
   OMI_APP_ID: z.string().optional().default(''),
   OMI_APP_SECRET: z.string().optional().default(''),
   PUBLIC_SERVER_URL: z.string().url().default('https://ai-printshop-workflow-production.up.railway.app'),
+  BOARD_RELAY_URL: z.string().url().optional().default('https://ai-printshop-workflow-production.up.railway.app'),
   CLIENT_ORIGINS: z
     .string()
     .default(

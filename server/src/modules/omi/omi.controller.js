@@ -2,6 +2,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 import { sendOk } from '../../utils/ApiResponse.js';
 import { ApiError } from '../../utils/ApiError.js';
 import * as omiService from './omi.service.js';
+import { applyRelayedBoardEvent } from '../../sockets/events.js';
 
 export const webhook = asyncHandler(async (req, res) => {
   await omiService.verifyOmiSecret(req);
@@ -26,6 +27,17 @@ export const setupStatus = asyncHandler(async (req, res) => {
 
 export const webhookUrl = asyncHandler(async (req, res) => {
   return sendOk(res, { url: await omiService.webhookUrl(req, { mask: false }) }, 'OMI webhook URL');
+});
+
+export const boardRelay = asyncHandler(async (req, res) => {
+  await omiService.verifyOmiSecret(req);
+  const event = req.body?.event;
+  const payload = req.body?.payload;
+  const ok = applyRelayedBoardEvent(event, payload);
+  if (!ok) {
+    throw new ApiError(400, 'Unknown board event');
+  }
+  return sendOk(res, { event }, 'Relayed');
 });
 
 export const debug = asyncHandler(async (_req, res) => {

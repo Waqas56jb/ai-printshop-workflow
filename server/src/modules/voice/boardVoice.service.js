@@ -79,6 +79,7 @@ async function ensureFocus(jobId) {
   const payload = payloadFromJob(job, stages);
   updateBoardSession({ focused_job_id: jobId });
   emitBoardFocus(payload);
+  logger.info(`board:focus ${JSON.stringify({ job_id: payload.job_id, job_number: payload.job_number, customer_name: payload.customer_name, stage_name: payload.stage_name })}`);
   return { job, payload };
 }
 
@@ -214,20 +215,23 @@ export async function ticker({ transcript, reply, userName }) {
 
 export async function speak(text) {
   const settings = await settingsService.getSettings();
-  if (settings.tts_enabled === false || settings.voice_tv_speaker === false) return;
-  if (!hasBoardSockets()) return;
-
   const full = String(text || '').replace(/\s+/g, ' ').trim();
   if (!full) return;
 
-  const voice = settings.voice_tv_voice || settings.voice_agent_voice || 'alloy';
-  const audio = await generateSpeech(full, voice);
-  emitBoardSpeak({
+  const gatedOff = settings.tts_enabled === false || settings.voice_tv_speaker === false;
+  let audio = null;
+  if (!gatedOff && (hasBoardSockets() || process.env.VERCEL)) {
+    const voice = settings.voice_tv_voice || settings.voice_agent_voice || 'alloy';
+    audio = await generateSpeech(full, voice);
+  }
+
+  const payload = {
     audio_base64: audio?.audio_base64 || null,
     mime: audio?.mime || 'audio/mpeg',
     text: full,
-  });
-  logger.info(`board:speak text="${full}" audio=${audio ? 'present' : 'null'}`);
+  };
+  emitBoardSpeak(payload);
+  logger.info(`board:speak ${JSON.stringify({ text: full, audio: payload.audio_base64 ? 'present' : null })}`);
 }
 
 export async function notify({ transcript, reply, userName, boardAction }) {

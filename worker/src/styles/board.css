@@ -402,7 +402,7 @@ kbd{
 .tick-bar{flex:1;min-width:0}
 .tick-bar .tick{opacity:1}
 .tick-bar.show{opacity:0}
-.tick-bar.show.in{animation:tick-fade-in .25s ease-out forwards}
+.tick-bar.show.in{opacity:1;animation:tick-fade-in .25s ease-out forwards}
 .tick-bar.show.out{animation:tick-fade-out .5s ease-in forwards}
 @keyframes tick-fade-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @keyframes tick-fade-out{from{opacity:1}to{opacity:0}}

@@ -6,6 +6,7 @@ import * as omiController from './omi.controller.js';
 const router = Router();
 
 router.post('/webhook', omiController.webhook);
+router.post('/board-relay', omiController.boardRelay);
 router.get('/setup-status', omiController.setupStatus);
 router.get('/webhook-url', authenticate, requireRole('admin'), omiController.webhookUrl);
 router.get('/debug', authenticate, requireRole('admin'), omiController.debug);

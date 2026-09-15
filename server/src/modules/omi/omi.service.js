@@ -21,7 +21,9 @@ const memoryBuffers = new Map();
 const memoryStamps = new Map();
 const inflight = new Map();
 const FLUSH_MS = 1200;
-const MIN_WORDS = 3;
+const MIN_WORDS = 2;
+const SHORT_COMMANDS =
+  /^(done|ready|next|back|zoom|yes|yeah|yep|no|nope|stop|hello|hi)$/i;
 const YES = /^(yes|yeah|yep|yup|ok|okay|confirm|sure|do it|go ahead)[.!?]?$/i;
 const NO = /^(no|nope|nah|cancel|stop|don't|dont|reject)[.!?]?$/i;
 
@@ -231,6 +233,16 @@ async function flushBuffer({ key, uid, sessionId, waitMs, startedAt }) {
     return { message: '', replyOnDevice: false };
   }
 
+  const peeked = (latest.texts || []).join(' ').replace(/\s+/g, ' ').trim();
+  if (!peeked) {
+    return { message: '', replyOnDevice: false };
+  }
+  const ready = wordCount(peeked) >= MIN_WORDS || SHORT_COMMANDS.test(peeked) || isCompleteSentence(peeked);
+  if (!ready) {
+    recordDebug({ uid, session: sessionId, kind: 'hold', text: peeked, reason: 'too_short' });
+    return { message: '', replyOnDevice: false };
+  }
+
   const flushed = (await takeBuffer(key)).join(' ').replace(/\s+/g, ' ').trim();
   if (!flushed) {
     return { message: '', replyOnDevice: false };
@@ -248,11 +260,6 @@ async function flushBuffer({ key, uid, sessionId, waitMs, startedAt }) {
     if (pending && NO.test(flushed)) {
       await voiceService.rejectCommand(pending.id);
       return finishReply(uid, sessionId, flushed, 'Okay, cancelled.');
-    }
-
-    if (wordCount(flushed) < MIN_WORDS) {
-      recordDebug({ uid, session: sessionId, kind: 'ignore', text: flushed, reason: 'too_short' });
-      return { message: '', replyOnDevice: false };
     }
 
     const result = await voiceService.runIntentPipeline({

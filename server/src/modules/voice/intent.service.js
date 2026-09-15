@@ -105,16 +105,28 @@ function resolveJobWithFocus(intent, jobs, focusedJobId) {
   return { matches: [], job: null };
 }
 
+const TV_INSTANT_ACTIONS = new Set([
+  'focus_job',
+  'show_details',
+  'show_artwork',
+  'next_artwork',
+  'prev_artwork',
+  'zoom_artwork',
+  'next_job',
+  'prev_job',
+  'filter_jobs',
+  'back_to_board',
+]);
+
 const AMBIGUITY_REQUIRES_CONFIRMATION = new Set([
   'move_stage',
   'add_note',
   'job_status',
   'assign_job',
-  'show_details',
-  'show_artwork',
 ]);
 
 export function needsConfirmation(intent, matches, autoExecute, threshold = 0.7) {
+  if (TV_INSTANT_ACTIONS.has(intent.action)) return false;
   if (!autoExecute) return true;
   if (intent.confidence < Number(threshold)) return true;
   if (AMBIGUITY_REQUIRES_CONFIRMATION.has(intent.action)) {

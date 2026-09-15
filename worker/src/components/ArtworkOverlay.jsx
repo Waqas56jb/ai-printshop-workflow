@@ -6,12 +6,15 @@ function isImage(url = '') {
   return /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(url);
 }
 
-export function ArtworkOverlay({ job, index, zoom, onIndexChange, onZoomToggle, onBackToJob, onBackToBoard }) {
+export function ArtworkOverlay({ job, liveArtwork, index, zoom, onIndexChange, onZoomToggle, onBackToJob, onBackToBoard }) {
   if (!job) return null;
   const artworks = job.artworks || [];
-  const total = artworks.length;
+  const total = liveArtwork?.total || artworks.length;
   const safeIndex = total ? ((index % total) + total) % total : 0;
-  const art = artworks[safeIndex];
+  const fromList = artworks[safeIndex];
+  const art = liveArtwork?.url
+    ? { url: liveArtwork.url, name: liveArtwork.name, is_approved: liveArtwork.is_approved }
+    : fromList;
 
   function goNext() {
     if (total > 1) onIndexChange?.((safeIndex + 1) % total);

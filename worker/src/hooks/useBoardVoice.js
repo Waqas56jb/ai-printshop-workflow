@@ -26,12 +26,8 @@ function speakFallback(text, onDone) {
   }
 }
 
-// A second, dedicated socket connection for voice-driven board reactions (focus,
-// artwork, navigation, speech) — kept separate from useBoard's polling/refresh
-// socket so the two concerns don't tangle. Marked `preview: true` purely so the
-// server's "connected screens" tracker (used by Admin) doesn't double-count this
-// TV as two physical screens; it has no other effect (auth/board-key rules are
-// unchanged) since it's the exact flag the server already uses for that purpose.
+// Dedicated socket for voice-driven board reactions (spotlight, artwork, TTS).
+// Joins the same "board" room as the refresh socket so OMI commands hit the TV live.
 export function useBoardVoice(
   enabled,
   { key = '', label = '', preview = false } = {},
@@ -86,8 +82,8 @@ export function useBoardVoice(
   useEffect(() => {
     if (!enabled) return undefined;
 
-    const auth = { label, preview: true };
-    const query = { label, preview: '1' };
+    const auth = { label, preview };
+    const query = { label, preview: preview ? '1' : '' };
     if (key) {
       auth.key = key;
       query.key = key;

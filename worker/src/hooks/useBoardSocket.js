@@ -26,6 +26,14 @@ export function useBoardSocket(enabled, onRefresh, { key = '', label = '', previ
       socket.on(event, onRefresh);
     });
 
+    ['board:focus', 'board:details', 'board:artwork', 'board:navigate', 'board:confirm', 'board:speak', 'board:ticker'].forEach(
+      (event) => {
+        socket.on(event, () => {
+          if (event === 'board:focus' || event === 'board:navigate') onRefresh();
+        });
+      }
+    );
+
     return () => {
       socket.disconnect();
     };

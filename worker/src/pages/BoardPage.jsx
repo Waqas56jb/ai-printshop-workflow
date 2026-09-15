@@ -231,6 +231,7 @@ export function BoardPage({ boardKey, preview = false, label = '' }) {
       {voice.view === 'artwork' && voice.focusedJob ? (
         <ArtworkOverlay
           job={voice.focusedJob}
+          liveArtwork={voice.artwork}
           index={artworkIndex}
           zoom={zoom}
           onIndexChange={setArtworkIndex}
