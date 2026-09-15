@@ -1,21 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { JobCard } from './JobCard.jsx';
+import { sortBoardJobs } from '../utils/boardJobs.js';
 
-const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2, low: 3 };
-
-function sortJobs(jobs) {
-  return [...jobs].sort((a, b) => {
-    if (a.is_overdue !== b.is_overdue) return a.is_overdue ? -1 : 1;
-    if (a.is_due_today !== b.is_due_today) return a.is_due_today ? -1 : 1;
-    const ad = a.due_date || '9999-12-31';
-    const bd = b.due_date || '9999-12-31';
-    if (ad !== bd) return ad < bd ? -1 : 1;
-    return (PRIORITY_RANK[a.priority] ?? 4) - (PRIORITY_RANK[b.priority] ?? 4);
-  });
-}
-
-export function StageColumn({ stage, settings, prevJobs }) {
-  const jobs = useMemo(() => sortJobs(stage.jobs || []), [stage.jobs]);
+export function StageColumn({ stage, settings, prevJobs, focusedJobId, keepVisible = false }) {
+  const jobs = useMemo(() => sortBoardJobs(stage.jobs || []), [stage.jobs]);
   const cardsRef = useRef(null);
 
   useEffect(() => {
@@ -46,7 +34,10 @@ export function StageColumn({ stage, settings, prevJobs }) {
   }, [jobs]);
 
   return (
-    <section className={`col${jobs.length ? '' : ' empty'}`} style={{ '--stage': stage.color }}>
+    <section
+      className={`col${jobs.length ? '' : ' empty'}${keepVisible ? ' keep-visible' : ''}`}
+      style={{ '--stage': stage.color }}
+    >
       <div className="col-head">
         <h2>{stage.name}</h2>
         <span className={`n num${jobs.length ? '' : ' zero'}`}>{jobs.length}</span>
@@ -63,6 +54,7 @@ export function StageColumn({ stage, settings, prevJobs }) {
               stageName={stage.name}
               settings={settings}
               prevJobs={prevJobs}
+              focused={job.id === focusedJobId}
             />
           ))
         )}

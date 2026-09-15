@@ -259,6 +259,7 @@ async function flushBuffer({ key, uid, sessionId, waitMs, startedAt }) {
       transcript: flushed,
       userId: profile?.id || null,
       omiUid: uid,
+      userName: profile?.full_name || null,
     });
     const message = speakable(result.message);
     if (!message) {

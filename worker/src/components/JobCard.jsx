@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatDueLabel } from '../utils/date.js';
 
-export function JobCard({ job, stageId, stageName, settings, prevJobs }) {
+export function JobCard({ job, stageId, stageName, settings, prevJobs, focused = false }) {
   const [moved, setMoved] = useState(false);
   const timer = useRef(null);
   const map = prevJobs;
@@ -27,6 +27,7 @@ export function JobCard({ job, stageId, stageName, settings, prevJobs }) {
   else if (job.is_due_today) classes.push('today');
   if (flashOverdue) classes.push('flash');
   if (moved) classes.push('moved');
+  if (focused) classes.push('focused');
 
   const prio = job.priority === 'urgent' || job.priority === 'high' ? job.priority : null;
   const due = formatDueLabel(job.due_date, { ready });

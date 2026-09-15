@@ -1,7 +1,8 @@
 import { formatClockDate, formatClockTime } from '../utils/date.js';
 import { BoardMetrics } from './BoardMetrics.jsx';
+import { Waveform } from './Waveform.jsx';
 
-export function BoardHeader({ shop, summary, stages, live, now }) {
+export function BoardHeader({ shop, summary, stages, live, now, speaking = false }) {
   return (
     <header className="head">
       <div className="head-top">
@@ -17,6 +18,7 @@ export function BoardHeader({ shop, summary, stages, live, now }) {
         <div className={`live${live ? '' : ' off'}`}>
           <i></i>
           {live ? 'Live' : 'Offline'}
+          <Waveform active={speaking} />
         </div>
         <div className="clock">
           <div className="t num">{formatClockTime(now)}</div>

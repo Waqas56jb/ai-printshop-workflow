@@ -6,6 +6,7 @@ export const command = asyncHandler(async (req, res) => {
   const result = await voiceService.runIntentPipeline({
     transcript: req.body.transcript,
     userId: req.user.id,
+    userName: req.user.profile?.full_name || null,
   });
   return sendOk(res, result, result.message);
 });

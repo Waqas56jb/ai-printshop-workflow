@@ -267,11 +267,13 @@ export async function getBoardDisplay() {
   if (lastVoiceRow) {
     const stageName = lastVoiceRow.intent?.stage;
     const jobNumber = lastVoiceRow.job?.job_number;
+    const summary =
+      lastVoiceRow.intent?.reply ||
+      (jobNumber && stageName ? `${jobNumber} → ${stageName}` : lastVoiceRow.action || '');
     last_voice = {
       transcript: lastVoiceRow.transcript,
-      summary:
-        lastVoiceRow.intent?.reply ||
-        (jobNumber && stageName ? `${jobNumber} → ${stageName}` : lastVoiceRow.action || ''),
+      summary,
+      ai_reply: summary,
       user_name: lastVoiceRow.user?.full_name || null,
       created_at: lastVoiceRow.created_at,
     };

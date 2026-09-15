@@ -3,8 +3,10 @@ import { ApiError } from '../../utils/ApiError.js';
 import { emitVoiceCommand } from '../../sockets/events.js';
 import * as settingsService from '../settings/settings.service.js';
 import * as jobsService from '../jobs/jobs.service.js';
-import { executeIntent, needsConfirmation, parseIntent, resolveJob } from './intent.service.js';
+import { executeIntent, needsConfirmation, parseIntent, resolveJob, resolveJobWithFocus } from './intent.service.js';
 import * as stagesService from '../stages/stages.service.js';
+import * as boardVoiceService from './boardVoice.service.js';
+import { logger } from '../../utils/logger.js';
 
 function startsWithTrigger(transcript, trigger) {
   const word = (trigger || '').trim().toLowerCase();
@@ -131,7 +133,7 @@ async function enrichPending(items) {
   });
 }
 
-export async function runIntentPipeline({ transcript, userId = null, omiUid = null }) {
+export async function runIntentPipeline({ transcript, userId = null, omiUid = null, userName = null }) {
   const settings = await settingsService.getSettings();
   const trigger = settings.voice_trigger_word || '';
   const autoExecute = settings.voice_auto_execute !== false;
@@ -155,18 +157,21 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
       error: error.message,
     });
     emitVoiceCommand(failed);
-    return { command: failed, message: 'Sorry, I could not understand that.' };
+    const message = 'Sorry, I could not understand that.';
+    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
+    return { command: failed, message };
   }
 
   const { intent, jobs } = parsed;
+  logger.info(`intent action=${intent.action} job_ref=${intent.job_ref || ''} confidence=${intent.confidence}`);
   if (intent.action === 'unknown') {
-    return {
-      ignored: true,
-      message: intent.reply || "Sorry, I didn't catch a job command. Try asking what's due today.",
-    };
+    const message = intent.reply || "Sorry, I didn't catch a job command. Try asking what's due today.";
+    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
+    return { ignored: true, message };
   }
 
-  const { matches, job } = resolveJob(intent, jobs);
+  const focusedJobId = boardVoiceService.getFocusedJobId();
+  const { matches, job } = resolveJobWithFocus(intent, jobs, focusedJobId);
   const threshold = settings.voice_confidence_threshold ?? 0.7;
   const pending = needsConfirmation(intent, matches, autoExecute, threshold);
 
@@ -186,11 +191,12 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
       matches.length > 1
         ? `I found more than one match. Please confirm which job you mean.`
         : intent.reply || 'Please confirm that command.';
+    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
     return { command, message, needs_confirmation: true };
   }
 
   try {
-    const executed = await executeIntent(intent, { userId, jobs });
+    const executed = await executeIntent(intent, { userId, jobs, focusedJobId });
     const command = await saveVoiceCommand({
       transcript: cleaned,
       omi_uid: omiUid,
@@ -201,6 +207,12 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
       job_id: executed.job_id,
     });
     emitVoiceCommand(command);
+    await boardVoiceService.notify({
+      transcript: cleaned,
+      reply: executed.reply,
+      userName,
+      boardAction: executed.board_action,
+    });
     return { command, message: executed.reply, result: executed.result };
   } catch (error) {
     const command = await saveVoiceCommand({
@@ -214,7 +226,9 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
       error: error.message,
     });
     emitVoiceCommand(command);
-    return { command, message: error.message || 'Command failed.' };
+    const message = error.message || 'Command failed.';
+    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
+    return { command, message };
   }
 }
 
@@ -230,10 +244,12 @@ export async function confirmCommand(id, userId, { job_id, allow_skip } = {}) {
     const selected = jobs.find((job) => job.id === job_id);
     if (selected) intent.job_ref = selected.job_number;
   }
+  const focusedJobId = boardVoiceService.getFocusedJobId();
   const executed = await executeIntent(intent, {
     userId: userId || command.user_id,
     jobs,
     allowSkip: Boolean(allow_skip),
+    focusedJobId,
   });
   const updated = await updateVoiceCommand(id, {
     status: 'executed',
@@ -241,6 +257,11 @@ export async function confirmCommand(id, userId, { job_id, allow_skip } = {}) {
     error: null,
   });
   emitVoiceCommand(updated);
+  await boardVoiceService.notify({
+    transcript: command.transcript,
+    reply: executed.reply,
+    boardAction: executed.board_action,
+  });
   return { command: updated, message: executed.reply, result: executed.result };
 }
 

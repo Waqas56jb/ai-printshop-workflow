@@ -36,6 +36,9 @@ export const SETTING_DEFAULTS = {
   notify_email: '',
   voice_agent_enabled: true,
   voice_agent_voice: 'alloy',
+  voice_tv_speaker: true,
+  voice_tv_voice: 'alloy',
+  tts_enabled: true,
 };
 
 const HIDDEN_KEYS = new Set(['omi_webhook_secret']);

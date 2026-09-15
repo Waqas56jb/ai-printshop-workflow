@@ -3,6 +3,7 @@ import { env } from '../config/env.js';
 import { supabase } from '../config/supabase.js';
 import { logger } from '../utils/logger.js';
 import { trackBoardJoin, trackBoardLeave } from './boardScreens.js';
+import { evictBoardSession } from './boardSession.js';
 
 let io;
 
@@ -89,8 +90,46 @@ export function initSockets(httpServer) {
       }
     });
 
+    // Voice-driven TV board: a card clicked in ConfirmOverlay re-runs the focus
+    // for that job; keyboard/voice next-prev asks the server to re-send the full
+    // job payload for whichever job the board decided to focus next. Both are
+    // lazy-imported to avoid a static import cycle with sockets/events.js.
+    socket.on('board:confirm_reply', async (payload) => {
+      if (!socket.rooms.has('board')) return;
+      try {
+        const { confirmFocus } = await import('../modules/voice/boardVoice.service.js');
+        await confirmFocus(payload?.job_id);
+      } catch (error) {
+        logger.error(`board confirm_reply failed: ${error.message}`);
+      }
+    });
+
+    socket.on('board:focus_request', async (payload) => {
+      if (!socket.rooms.has('board')) return;
+      try {
+        const { focusJob } = await import('../modules/voice/boardVoice.service.js');
+        await focusJob(payload?.job_id);
+      } catch (error) {
+        logger.error(`board focus_request failed: ${error.message}`);
+      }
+    });
+
+    socket.on('board:move_stage_request', async (payload) => {
+      if (!socket.rooms.has('board')) return;
+      try {
+        const { moveFocusedStage } = await import('../modules/voice/boardVoice.service.js');
+        await moveFocusedStage(payload?.direction === 'prev' ? 'prev' : 'next');
+      } catch (error) {
+        logger.error(`board move_stage_request failed: ${error.message}`);
+      }
+    });
+
     socket.on('disconnect', () => {
       trackBoardLeave(socket.id, io);
+      const remaining = io.sockets.adapter.rooms.get('board');
+      if (!remaining || remaining.size === 0) {
+        evictBoardSession();
+      }
     });
 
     logger.info(`socket connected ${socket.id} role=${role || 'guest'}`);
