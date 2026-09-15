@@ -20,6 +20,17 @@ function stripTrigger(transcript, trigger) {
   return transcript.trim().replace(new RegExp(`^${word}\\s*`, 'i'), '').trim();
 }
 
+// Fire-and-forget: the board reaction (ticker + focus/details/artwork/etc. +
+// TTS synthesis) is a separate channel from the OMI webhook's HTTP reply.
+// Awaiting it here would make every OMI response wait on an OpenAI TTS round
+// trip (seconds) for no reason — the TV picks it up over its own socket a
+// moment later regardless of when this function returns.
+function notifyBoard(payload) {
+  boardVoiceService.notify(payload).catch((error) => {
+    logger.error(`board notify failed: ${error.message}`);
+  });
+}
+
 export async function findProfileByOmiUid(omiUid) {
   if (!omiUid) return null;
   return unwrap(
@@ -158,7 +169,7 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
     });
     emitVoiceCommand(failed);
     const message = 'Sorry, I could not understand that.';
-    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
+    notifyBoard({ transcript: cleaned, reply: message, userName });
     return { command: failed, message };
   }
 
@@ -166,7 +177,7 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
   logger.info(`intent action=${intent.action} job_ref=${intent.job_ref || ''} confidence=${intent.confidence}`);
   if (intent.action === 'unknown') {
     const message = intent.reply || "Sorry, I didn't catch a job command. Try asking what's due today.";
-    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
+    notifyBoard({ transcript: cleaned, reply: message, userName });
     return { ignored: true, message };
   }
 
@@ -191,7 +202,7 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
       matches.length > 1
         ? `I found more than one match. Please confirm which job you mean.`
         : intent.reply || 'Please confirm that command.';
-    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
+    notifyBoard({ transcript: cleaned, reply: message, userName });
     return { command, message, needs_confirmation: true };
   }
 
@@ -207,7 +218,7 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
       job_id: executed.job_id,
     });
     emitVoiceCommand(command);
-    await boardVoiceService.notify({
+    notifyBoard({
       transcript: cleaned,
       reply: executed.reply,
       userName,
@@ -227,7 +238,7 @@ export async function runIntentPipeline({ transcript, userId = null, omiUid = nu
     });
     emitVoiceCommand(command);
     const message = error.message || 'Command failed.';
-    await boardVoiceService.notify({ transcript: cleaned, reply: message, userName });
+    notifyBoard({ transcript: cleaned, reply: message, userName });
     return { command, message };
   }
 }
@@ -257,7 +268,7 @@ export async function confirmCommand(id, userId, { job_id, allow_skip } = {}) {
     error: null,
   });
   emitVoiceCommand(updated);
-  await boardVoiceService.notify({
+  notifyBoard({
     transcript: command.transcript,
     reply: executed.reply,
     boardAction: executed.board_action,

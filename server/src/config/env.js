@@ -12,7 +12,7 @@ const envSchema = z.object({
   OMI_WEBHOOK_SECRET: z.string().optional().default(''),
   OMI_APP_ID: z.string().optional().default(''),
   OMI_APP_SECRET: z.string().optional().default(''),
-  PUBLIC_SERVER_URL: z.string().url().default('https://ai-printshop-workflow-server.vercel.app'),
+  PUBLIC_SERVER_URL: z.string().url().default('https://ai-printshop-workflow-production.up.railway.app'),
   CLIENT_ORIGINS: z
     .string()
     .default(
@@ -30,7 +30,7 @@ const envSchema = z.object({
 const parsedResult = envSchema.safeParse(process.env);
 if (!parsedResult.success) {
   const missing = parsedResult.error.issues.map((issue) => issue.path.join('.') || issue.message).join(', ');
-  throw new Error(`Server env is incomplete (${missing}). Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on Vercel.`);
+  throw new Error(`Server env is incomplete (${missing}). Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your host's environment variables.`);
 }
 const parsed = parsedResult.data;
 
