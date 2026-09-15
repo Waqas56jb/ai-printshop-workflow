@@ -44,6 +44,8 @@ export function useBoardVoice(
   const [ticker, setTicker] = useState(null);
   const [filter, setFilter] = useState('all');
   const [speaking, setSpeaking] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [lastError, setLastError] = useState('');
 
   const socketRef = useRef(null);
   const audioRef = useRef(null);
@@ -97,7 +99,19 @@ export function useBoardVoice(
       emitRef.current = (event, payload) => socket.emit(event, payload);
     }
 
-    socket.on('connect', () => socket.emit('join', 'board'));
+    socket.on('connect', () => {
+      setConnected(true);
+      setLastError('');
+      socket.emit('join', 'board');
+    });
+    socket.on('disconnect', (reason) => {
+      setConnected(false);
+      setLastError(`disconnected: ${reason}`);
+    });
+    socket.on('connect_error', (error) => {
+      setConnected(false);
+      setLastError(error?.message || 'connect_error');
+    });
 
     socket.on('board:focus', (payload) => {
       setFocusedJob(payload);
@@ -141,6 +155,7 @@ export function useBoardVoice(
     return () => {
       socket.disconnect();
       socketRef.current = null;
+      setConnected(false);
       if (emitRef) emitRef.current = () => {};
       window.speechSynthesis?.cancel?.();
       audioRef.current?.pause?.();
@@ -172,6 +187,8 @@ export function useBoardVoice(
     ticker,
     filter,
     speaking,
+    connected,
+    lastError,
     backToBoard,
     confirmReply,
     cancelConfirm,

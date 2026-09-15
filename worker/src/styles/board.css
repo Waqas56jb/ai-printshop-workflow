@@ -82,6 +82,15 @@ svg{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-lin
 .live.off{color:var(--text-3);background:rgba(255,255,255,.04);border-color:var(--line)}
 .live.off i{background:var(--text-3);box-shadow:none}
 
+.voice-status{
+  display:flex;align-items:center;gap:.45em;color:var(--magenta);font-weight:600;font-size:.78em;
+  letter-spacing:.06em;text-transform:uppercase;background:rgba(226,58,134,.1);
+  border:1px solid rgba(226,58,134,.22);padding:.35em .75em;border-radius:99px;flex:none;margin-left:.6em;
+}
+.voice-status i{width:.5em;height:.5em;border-radius:50%;background:var(--magenta);box-shadow:0 0 0 .28em rgba(226,58,134,.22)}
+.voice-status.off{color:var(--red);background:rgba(240,82,74,.1);border-color:rgba(240,82,74,.25)}
+.voice-status.off i{background:var(--red);box-shadow:none;animation:mic-pulse 1.4s ease-in-out infinite}
+
 .metrics{
   display:grid;
   grid-template-columns:minmax(0,1.45fr) minmax(0,.95fr);

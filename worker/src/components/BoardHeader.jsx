@@ -2,7 +2,16 @@ import { formatClockDate, formatClockTime } from '../utils/date.js';
 import { BoardMetrics } from './BoardMetrics.jsx';
 import { Waveform } from './Waveform.jsx';
 
-export function BoardHeader({ shop, summary, stages, live, now, speaking = false }) {
+export function BoardHeader({
+  shop,
+  summary,
+  stages,
+  live,
+  now,
+  speaking = false,
+  voiceConnected = false,
+  voiceError = '',
+}) {
   return (
     <header className="head">
       <div className="head-top">
@@ -19,6 +28,13 @@ export function BoardHeader({ shop, summary, stages, live, now, speaking = false
           <i></i>
           {live ? 'Live' : 'Offline'}
           <Waveform active={speaking} />
+        </div>
+        <div
+          className={`voice-status${voiceConnected ? ' on' : ' off'}`}
+          title={voiceConnected ? 'Voice channel connected' : voiceError || 'Voice channel not connected'}
+        >
+          <i></i>
+          {voiceConnected ? 'Voice' : 'Voice off'}
         </div>
         <div className="clock">
           <div className="t num">{formatClockTime(now)}</div>

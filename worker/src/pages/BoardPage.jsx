@@ -189,6 +189,8 @@ export function BoardPage({ boardKey, preview = false, label = '' }) {
         live={!offline}
         now={now}
         speaking={voice.speaking}
+        voiceConnected={voice.connected}
+        voiceError={voice.lastError}
       />
       <main className={`cols${voice.view !== 'board' ? ' dimmed' : ''}`}>
         {stages.map((stage) => (
