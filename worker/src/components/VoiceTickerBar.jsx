@@ -4,7 +4,7 @@ import { formatClockTime, formatRelative } from '../utils/date.js';
 const VISIBLE_MS = 6000;
 const FADE_OUT_MS = 500;
 
-export function VoiceTickerBar({ ticker, updatedAt }) {
+export function VoiceTickerBar({ ticker, updatedAt, listening = false }) {
   const [active, setActive] = useState(null);
   const [phase, setPhase] = useState('idle'); // 'in' | 'idle' | 'out'
   const hideTimer = useRef(null);
@@ -38,8 +38,19 @@ export function VoiceTickerBar({ ticker, updatedAt }) {
 
   return (
     <footer className="foot">
-      <div className={`tick-bar${phase !== 'idle' ? ` show ${phase}` : ''}`}>
-        {active ? (
+      <div className={`tick-bar${!listening && phase !== 'idle' ? ` show ${phase}` : ''}`}>
+        {listening ? (
+          <div className="tick listening">
+            <span className="mic pulse">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2" />
+              </svg>
+            </span>
+            <div className="tick-copy">
+              <b>Listening… go ahead</b>
+            </div>
+          </div>
+        ) : active ? (
           <div className="tick">
             <span className="mic pulse">
               <svg viewBox="0 0 24 24">
@@ -66,7 +77,7 @@ export function VoiceTickerBar({ ticker, updatedAt }) {
               </svg>
             </span>
             <div className="tick-copy">
-              <b>Listening for shop commands</b>
+              <b>Say &ldquo;Hey Board&rdquo; to give a command</b>
             </div>
           </div>
         )}

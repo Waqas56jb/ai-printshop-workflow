@@ -42,9 +42,15 @@ export function useBoardVoice(
   const [speaking, setSpeaking] = useState(false);
   const [connected, setConnected] = useState(false);
   const [lastError, setLastError] = useState('');
+  const [listening, setListening] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
 
   const socketRef = useRef(null);
   const audioRef = useRef(null);
+  const lastSeqRef = useRef(null);
+  const connectedRef = useRef(false);
+  const listeningTimer = useRef(null);
+  const dispatchRef = useRef(() => {});
   const onNextRef = useRef(onNext);
   const onPrevRef = useRef(onPrev);
   const onZoomRef = useRef(onZoom);
@@ -73,8 +79,9 @@ export function useBoardVoice(
         audioRef.current = audio;
         audio.addEventListener('ended', finish, { once: true });
         audio.addEventListener('error', finish, { once: true });
-        audio.play().catch(() => {
+        audio.play().catch((error) => {
           finish();
+          if (error?.name === 'NotAllowedError') setAudioReady(false);
           speakFallback(text, () => {});
         });
         return;
@@ -84,6 +91,108 @@ export function useBoardVoice(
     }
     speakFallback(text, finish);
   }, []);
+
+  // Browsers keep a page silent until someone interacts with it once. The first
+  // tap/key on the TV unlocks audio for the rest of the session.
+  useEffect(() => {
+    function unlock() {
+      try {
+        const silent = new Audio(
+          'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
+        );
+        silent.play().catch(() => {});
+        window.speechSynthesis?.speak?.(new SpeechSynthesisUtterance(''));
+      } catch {
+        /* ignore */
+      }
+      setAudioReady(true);
+    }
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  // One dispatcher for both the socket and the HTTP catch-up poll; events carry a
+  // server sequence number so whichever channel delivers first wins and the other
+  // is ignored.
+  dispatchRef.current = (event, payload = {}) => {
+    const seq = Number(payload?._seq);
+    if (Number.isFinite(seq)) {
+      if (lastSeqRef.current != null && seq <= lastSeqRef.current) return;
+      lastSeqRef.current = seq;
+    }
+    switch (event) {
+      case 'board:focus':
+        setFocusedJob(payload);
+        setView((current) => (current === 'artwork' || current === 'details' ? current : 'spotlight'));
+        break;
+      case 'board:details':
+        setView('details');
+        break;
+      case 'board:artwork':
+        setArtwork(payload);
+        setView('artwork');
+        break;
+      case 'board:navigate':
+        if (payload.action === 'back') backToBoard();
+        else if (payload.action === 'filter') setFilter(payload.filter || 'all');
+        else if (payload.action === 'next') onNextRef.current?.();
+        else if (payload.action === 'prev') onPrevRef.current?.();
+        else if (payload.action === 'zoom') onZoomRef.current?.();
+        break;
+      case 'board:confirm':
+        setConfirmState(payload);
+        setView('confirm');
+        break;
+      case 'board:speak':
+        if (!payload.muted) playAudio(payload.audio_base64, payload.mime, payload.text);
+        break;
+      case 'board:ticker':
+        setTicker(payload);
+        break;
+      case 'board:listening':
+        clearTimeout(listeningTimer.current);
+        setListening(Boolean(payload.active));
+        if (payload.active) listeningTimer.current = setTimeout(() => setListening(false), 12_000);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // HTTP catch-up: if the TV's WebSocket is blocked or reconnecting, commands still
+  // arrive within ~1s. While the socket is healthy this just runs as a slow safety net.
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let stopped = false;
+    let timer;
+    async function poll() {
+      try {
+        const params = new URLSearchParams({ after: String(lastSeqRef.current ?? -1) });
+        if (key) params.set('key', key);
+        const response = await fetch(`${API_URL}/api/board/events?${params}`, { cache: 'no-store' });
+        if (response.ok) {
+          const { data } = await response.json();
+          if (lastSeqRef.current == null || data?.reset) {
+            lastSeqRef.current = data?.seq ?? 0;
+          } else {
+            (data?.events || []).forEach((row) => dispatchRef.current(row.event, row.payload));
+          }
+        }
+      } catch {
+        /* offline — try again next tick */
+      }
+      if (!stopped) timer = setTimeout(poll, connectedRef.current ? 4000 : 1200);
+    }
+    poll();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [enabled, key]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -102,61 +211,37 @@ export function useBoardVoice(
     }
 
     socket.on('connect', () => {
+      connectedRef.current = true;
       setConnected(true);
       setLastError('');
       socket.emit('join', 'board');
     });
     socket.on('disconnect', (reason) => {
+      connectedRef.current = false;
       setConnected(false);
       setLastError(`disconnected: ${reason}`);
     });
     socket.on('connect_error', (error) => {
+      connectedRef.current = false;
       setConnected(false);
       setLastError(error?.message || 'connect_error');
     });
 
-    socket.on('board:focus', (payload) => {
-      setFocusedJob(payload);
-      setView((current) => (current === 'artwork' || current === 'details' ? current : 'spotlight'));
-    });
-    socket.on('board:details', () => setView('details'));
-    socket.on('board:artwork', (payload) => {
-      setArtwork(payload);
-      setView('artwork');
-    });
-    socket.on('board:navigate', (payload = {}) => {
-      switch (payload.action) {
-        case 'back':
-          backToBoard();
-          break;
-        case 'filter':
-          setFilter(payload.filter || 'all');
-          break;
-        case 'next':
-          onNextRef.current?.();
-          break;
-        case 'prev':
-          onPrevRef.current?.();
-          break;
-        case 'zoom':
-          onZoomRef.current?.();
-          break;
-        default:
-          break;
-      }
-    });
-    socket.on('board:confirm', (payload) => {
-      setConfirmState(payload);
-      setView('confirm');
-    });
-    socket.on('board:speak', (payload = {}) => {
-      playAudio(payload.audio_base64, payload.mime, payload.text);
-    });
-    socket.on('board:ticker', (payload) => setTicker(payload));
+    [
+      'board:focus',
+      'board:details',
+      'board:artwork',
+      'board:navigate',
+      'board:confirm',
+      'board:speak',
+      'board:ticker',
+      'board:listening',
+    ].forEach((event) => socket.on(event, (payload) => dispatchRef.current(event, payload)));
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
+      connectedRef.current = false;
       setConnected(false);
       if (emitRef) emitRef.current = () => {};
       window.speechSynthesis?.cancel?.();
@@ -191,6 +276,8 @@ export function useBoardVoice(
     speaking,
     connected,
     lastError,
+    listening,
+    audioReady,
     backToBoard,
     confirmReply,
     cancelConfirm,

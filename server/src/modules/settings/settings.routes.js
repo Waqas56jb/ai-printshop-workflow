@@ -35,6 +35,7 @@ router.patch(
         voice_tv_speaker: z.boolean().optional(),
         voice_tv_voice: z.string().optional(),
         tts_enabled: z.boolean().optional(),
+        omi_require_wake_word: z.boolean().optional(),
         board_refresh_seconds: z.number().int().positive().optional(),
         board_public: z.boolean().optional(),
         business_name: z.string().optional(),

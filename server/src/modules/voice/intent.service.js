@@ -167,6 +167,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         result: job,
         reply: intent.reply || `Created job ${job.job_number} for ${customer.name}.`,
         job_id: job.id,
+        board_action: { type: 'focus', job_id: job.id },
       };
     }
     case 'move_stage': {
@@ -214,6 +215,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         result: note,
         reply: intent.reply || `Added a note to ${job.job_number}.`,
         job_id: job.id,
+        board_action: { type: 'focus', job_id: job.id },
       };
     }
     case 'assign_job': {
@@ -226,6 +228,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         result: assigned,
         reply: intent.reply || `Assigned ${job.job_number} to you.`,
         job_id: job.id,
+        board_action: { type: 'focus', job_id: job.id },
       };
     }
     case 'job_status': {
@@ -240,6 +243,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
           intent.reply ||
           `${detail.job_number} for ${detail.customer?.name || 'the customer'} is in ${detail.stage?.name}.`,
         job_id: job.id,
+        board_action: { type: 'focus', job_id: job.id },
       };
     }
     case 'due_today': {
@@ -255,6 +259,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         result: items,
         reply: intent.reply || (names ? `Jobs due today: ${names}.` : 'No jobs are due today.'),
         job_id: null,
+        board_action: { type: 'navigate', action: 'filter', filter: 'today' },
       };
     }
     case 'pending_jobs': {
@@ -267,6 +272,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         result: items,
         reply: intent.reply || `There are ${total} active jobs.`,
         job_id: null,
+        board_action: { type: 'navigate', action: 'filter', filter: 'all' },
       };
     }
     case 'focus_job': {

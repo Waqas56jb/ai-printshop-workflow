@@ -4,7 +4,33 @@ import { ApiError } from '../../utils/ApiError.js';
 import { optionalUser } from '../../middleware/auth.js';
 import * as settingsService from '../settings/settings.service.js';
 import { getBoardStats, listScreens, noteBoardFetch } from '../../sockets/boardScreens.js';
+import { listBoardEventsAfter } from '../../sockets/events.js';
 import * as boardService from './board.service.js';
+
+let accessCache = { at: 0, raw: null };
+
+async function boardAccessSettings() {
+  if (accessCache.raw && Date.now() - accessCache.at < 10_000) return accessCache.raw;
+  const raw = await settingsService.getRawSettings();
+  accessCache = { at: Date.now(), raw };
+  return raw;
+}
+
+export const getEvents = asyncHandler(async (req, res) => {
+  const key = typeof req.query.key === 'string' ? req.query.key : '';
+  const raw = await boardAccessSettings();
+  const boardKey = typeof raw.board_key === 'string' ? raw.board_key : '';
+  const allowed =
+    settingsService.isBoardPublic(raw.board_public) || Boolean(key && boardKey && key === boardKey);
+  if (!allowed) {
+    const profile = await optionalUser(req);
+    if (!profile || !['admin', 'staff'].includes(profile.role)) {
+      throw new ApiError(401, 'Board key required');
+    }
+  }
+  res.set('Cache-Control', 'no-store');
+  return sendOk(res, listBoardEventsAfter(req.query.after), 'Board events');
+});
 
 export const getBoard = asyncHandler(async (req, res) => {
   const key = typeof req.query.key === 'string' ? req.query.key : '';

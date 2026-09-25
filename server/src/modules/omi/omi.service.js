@@ -3,7 +3,10 @@ import { env } from '../../config/env.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { logger } from '../../utils/logger.js';
 import * as voiceService from '../voice/voice.service.js';
+import * as boardVoiceService from '../voice/boardVoice.service.js';
 import * as settingsService from '../settings/settings.service.js';
+import { closeWindow, gateUtterance, openWindow, wordCount } from './commandGate.js';
+import { ingestAudio, transcribeEnglish } from './omi.audio.js';
 
 const debugEvents = [];
 const DEBUG_LIMIT = 20;
@@ -17,15 +20,30 @@ export function listDebugEvents() {
   return debugEvents;
 }
 
-const memoryBuffers = new Map();
-const memoryStamps = new Map();
-const inflight = new Map();
-const FLUSH_MS = 400;
-const MIN_WORDS = 2;
-const SHORT_COMMANDS =
-  /^(done|ready|next|back|zoom|yes|yeah|yep|no|nope|stop|hello|hi)$/i;
+// Transcript segments are buffered in memory per OMI session. This runs on the
+// persistent server (Vercel forwards OMI traffic here), so a plain Map is both
+// race-free and much faster than the old Supabase round trips per segment.
+const buffers = new Map();
+const audioSeen = new Map();
+const SETTLE_MS = 350;
+const QUIET_MS = 900;
+const INCOMPLETE_EXTRA_MS = 1300;
+const CONFIRM_WINDOW_MS = 15_000;
+const PENDING_MAX_AGE_MS = 2 * 60 * 1000;
+const SHORT_COMMANDS = /^(done|ready|next|back|zoom|yes|yeah|yep|no|nope|stop|cancel)[.!?]?$/i;
 const YES = /^(yes|yeah|yep|yup|ok|okay|confirm|sure|do it|go ahead)[.!?]?$/i;
 const NO = /^(no|nope|nah|cancel|stop|don't|dont|reject)[.!?]?$/i;
+
+export function noteAudioActivity(uid) {
+  audioSeen.set(uid, Date.now());
+}
+
+// When a device streams raw audio we transcribe it ourselves (English-locked),
+// so its OMI transcript webhook would only produce duplicate commands.
+function audioPathActive(uid) {
+  const at = audioSeen.get(uid);
+  return Boolean(at && Date.now() - at < 20_000);
+}
 
 function speakable(text) {
   const message = String(text || '').replace(/\s+/g, ' ').trim();
@@ -50,16 +68,8 @@ function extractUserTexts(payload) {
   return [];
 }
 
-function wordCount(text) {
-  return text.split(/\s+/).filter(Boolean).length;
-}
-
 function isCompleteSentence(text) {
   return /[.?!]["']?$/.test(text);
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function mergeTranscriptParts(existing, incoming) {
@@ -73,49 +83,6 @@ function mergeTranscriptParts(existing, incoming) {
   if (nextL.startsWith(prevL) || nextL.includes(prevL)) return [next];
   if (prevL.startsWith(nextL) || prevL.includes(nextL)) return [prev];
   return [prev, next];
-}
-
-async function appendBuffer(key, texts) {
-  const updatedAt = new Date().toISOString();
-  const { data, error } = await supabase.from('omi_buffers').select('texts').eq('buffer_key', key).maybeSingle();
-  if (!error) {
-    const next = mergeTranscriptParts(data?.texts || [], texts);
-    unwrap(
-      await supabase.from('omi_buffers').upsert({
-        buffer_key: key,
-        texts: next,
-        updated_at: updatedAt,
-      }),
-      'Failed to buffer transcript'
-    );
-    return { texts: next, updatedAt };
-  }
-  const current = memoryBuffers.get(key) || [];
-  const next = mergeTranscriptParts(current, texts);
-  memoryBuffers.set(key, next);
-  memoryStamps.set(key, updatedAt);
-  return { texts: next, updatedAt };
-}
-
-async function peekBuffer(key) {
-  const { data, error } = await supabase
-    .from('omi_buffers')
-    .select('texts, updated_at')
-    .eq('buffer_key', key)
-    .maybeSingle();
-  if (!error) {
-    return { texts: data?.texts || [], updatedAt: data?.updated_at || null };
-  }
-  return { texts: memoryBuffers.get(key) || [], updatedAt: memoryStamps.get(key) || null };
-}
-
-async function takeBuffer(key) {
-  const { data, error } = await supabase.from('omi_buffers').delete().eq('buffer_key', key).select('texts').maybeSingle();
-  if (!error) return data?.texts || [];
-  const texts = memoryBuffers.get(key) || [];
-  memoryBuffers.delete(key);
-  memoryStamps.delete(key);
-  return texts;
 }
 
 async function sendOmiNotification(uid, message) {
@@ -207,22 +174,121 @@ export async function touchDevice(omiUid, userId = null) {
   );
 }
 
+const EMPTY = { message: '', replyOnDevice: false };
+
+function joined(parts) {
+  return (parts || []).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function commandLooksComplete(command) {
+  return isCompleteSentence(command) || wordCount(command) >= 4 || SHORT_COMMANDS.test(command);
+}
+
 export async function handleWebhook({ uid, sessionId = '', payload }) {
   const texts = extractUserTexts(payload);
-  const key = `${uid}::${sessionId || 'default'}`;
-  const heard = texts.join(' ').replace(/\s+/g, ' ').trim() || '(empty)';
+  const heard = joined(texts) || '(empty)';
   recordDebug({ uid, session: sessionId, kind: 'webhook', text: heard });
   logger.info(`omi webhook uid=${uid} text=${heard}`);
-  if (!texts.length) {
-    return { message: '', replyOnDevice: false };
+  if (!texts.length) return EMPTY;
+  if (audioPathActive(uid)) {
+    recordDebug({ uid, session: sessionId, kind: 'ignore', text: heard, reason: 'audio_path_active' });
+    return EMPTY;
   }
 
-  const appended = await appendBuffer(key, texts);
-  const combined = appended.texts.join(' ').replace(/\s+/g, ' ').trim();
-  const waitMs = isCompleteSentence(combined) && wordCount(combined) >= MIN_WORDS ? 180 : FLUSH_MS;
-  const pending = flushBuffer({ key, uid, sessionId, waitMs, startedAt: Date.now() });
-  inflight.set(key, pending);
-  return pending;
+  const key = `${uid}::${sessionId || 'default'}`;
+  const entry = buffers.get(key) || { texts: [], version: 0, timer: null, resolve: null, extended: false };
+  // Keep only the tail of long overheard conversation so the buffer can't grow unbounded.
+  entry.texts = mergeTranscriptParts(entry.texts, texts).slice(-4);
+  entry.version += 1;
+  buffers.set(key, entry);
+
+  // The newest segment owns the reply; an earlier request still waiting returns empty.
+  clearTimeout(entry.timer);
+  entry.resolve?.(EMPTY);
+
+  const wait = isCompleteSentence(joined(entry.texts)) ? SETTLE_MS : QUIET_MS;
+  return new Promise((resolve) => {
+    entry.resolve = resolve;
+    scheduleSettle(key, uid, sessionId, wait);
+  });
+}
+
+function scheduleSettle(key, uid, sessionId, wait) {
+  const entry = buffers.get(key);
+  if (!entry) return;
+  const { version } = entry;
+  entry.timer = setTimeout(() => {
+    settleBuffer(key, uid, sessionId, version).catch((error) => {
+      logger.error(`omi settle failed: ${error.message}`);
+      const current = buffers.get(key);
+      if (current?.version === version) {
+        buffers.delete(key);
+        current.resolve?.(EMPTY);
+      }
+    });
+  }, wait);
+}
+
+async function settleBuffer(key, uid, sessionId, version) {
+  const entry = buffers.get(key);
+  if (!entry || entry.version !== version) return;
+  const text = joined(entry.texts);
+  const settings = await settingsService.getSettings();
+  if (entry.version !== version) return;
+
+  const gate = gateUtterance(uid, text, settings);
+  // "Hey board, pull up…" often arrives split across segments — give the rest of
+  // the sentence one short extra wait before acting on a half command.
+  if (gate.kind === 'command' && !entry.extended && !commandLooksComplete(gate.command)) {
+    entry.extended = true;
+    recordDebug({ uid, session: sessionId, kind: 'hold', text, reason: 'incomplete_command' });
+    scheduleSettle(key, uid, sessionId, INCOMPLETE_EXTRA_MS);
+    return;
+  }
+
+  buffers.delete(key);
+  const result = await processGated(uid, sessionId, text, gate);
+  entry.resolve?.(result);
+}
+
+async function processGated(uid, sessionId, text, gate) {
+  if (gate.kind === 'ignore') {
+    recordDebug({ uid, session: sessionId, kind: 'ignore', text, reason: gate.reason });
+    return EMPTY;
+  }
+  if (gate.kind === 'listening') {
+    recordDebug({ uid, session: sessionId, kind: 'listening', text });
+    boardVoiceService.listening(true);
+    return EMPTY;
+  }
+  return runCommand(uid, sessionId, gate.command);
+}
+
+// Entry point for speech that is already a finished utterance (raw-audio path).
+export async function handleSpokenText(uid, text, { sessionId = 'audio' } = {}) {
+  const settings = await settingsService.getSettings();
+  const gate = gateUtterance(uid, text, settings);
+  return processGated(uid, sessionId, text, gate);
+}
+
+const audioChains = new Map();
+
+// Utterances from one device are transcribed and handled strictly in order, so
+// "Hey board" always opens the listening window before the command after it lands.
+export function handleAudioChunk(uid, chunk, sampleRate) {
+  noteAudioActivity(uid);
+  ingestAudio(uid, chunk, sampleRate, (pcm, rate) => {
+    const previous = audioChains.get(uid) || Promise.resolve();
+    const next = previous
+      .then(async () => {
+        const text = await transcribeEnglish(pcm, rate);
+        recordDebug({ uid, session: 'audio', kind: 'transcript', text: text || '(silence)' });
+        logger.info(`omi audio uid=${uid} text=${text || '(silence)'}`);
+        if (text) await handleSpokenText(uid, text);
+      })
+      .catch((error) => logger.error(`omi audio utterance failed: ${error.message}`));
+    audioChains.set(uid, next);
+  });
 }
 
 async function latestPendingCommand(omiUid) {
@@ -232,6 +298,7 @@ async function latestPendingCommand(omiUid) {
     .select('id, user_id')
     .eq('omi_uid', omiUid)
     .eq('status', 'pending_confirmation')
+    .gte('created_at', new Date(Date.now() - PENDING_MAX_AGE_MS).toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -239,58 +306,44 @@ async function latestPendingCommand(omiUid) {
   return data;
 }
 
-async function flushBuffer({ key, uid, sessionId, waitMs, startedAt }) {
-  await sleep(waitMs);
-  const latest = await peekBuffer(key);
-  if (latest.updatedAt && new Date(latest.updatedAt).getTime() > startedAt + 80) {
-    return { message: '', replyOnDevice: false };
-  }
-
-  const peeked = (latest.texts || []).join(' ').replace(/\s+/g, ' ').trim();
-  if (!peeked) {
-    return { message: '', replyOnDevice: false };
-  }
-  const ready = wordCount(peeked) >= MIN_WORDS || SHORT_COMMANDS.test(peeked) || isCompleteSentence(peeked);
-  if (!ready) {
-    recordDebug({ uid, session: sessionId, kind: 'hold', text: peeked, reason: 'too_short' });
-    return { message: '', replyOnDevice: false };
-  }
-
-  const flushed = (await takeBuffer(key)).join(' ').replace(/\s+/g, ' ').trim();
-  if (!flushed) {
-    return { message: '', replyOnDevice: false };
-  }
-
+async function runCommand(uid, sessionId, command) {
+  closeWindow(uid);
+  boardVoiceService.listening(true);
+  logger.info(`omi command uid=${uid} text=${command}`);
   try {
     const profile = await voiceService.findProfileByOmiUid(uid);
     await touchDevice(uid, profile?.id || null);
     const pending = await latestPendingCommand(uid);
 
-    if (pending && YES.test(flushed)) {
+    if (pending && YES.test(command)) {
       const result = await voiceService.confirmCommand(pending.id, profile?.id || pending.user_id);
-      return finishReply(uid, sessionId, flushed, result.message || 'Okay, done.');
+      return finishReply(uid, sessionId, command, result.message || 'Okay, done.');
     }
-    if (pending && NO.test(flushed)) {
+    if (pending && NO.test(command)) {
       await voiceService.rejectCommand(pending.id);
-      return finishReply(uid, sessionId, flushed, 'Okay, cancelled.');
+      return finishReply(uid, sessionId, command, 'Okay, cancelled.');
     }
 
     const result = await voiceService.runIntentPipeline({
-      transcript: flushed,
+      transcript: command,
       userId: profile?.id || null,
       omiUid: uid,
       userName: profile?.full_name || null,
+      wakeHandled: true,
     });
+    if (result.needs_confirmation) openWindow(uid, CONFIRM_WINDOW_MS);
     const message = speakable(result.message);
     if (!message) {
-      recordDebug({ uid, session: sessionId, kind: 'ignore', text: flushed, reason: 'no_reply' });
-      return { message: '', replyOnDevice: false };
+      recordDebug({ uid, session: sessionId, kind: 'ignore', text: command, reason: 'no_reply' });
+      return EMPTY;
     }
-    return finishReply(uid, sessionId, flushed, message);
+    return finishReply(uid, sessionId, command, message);
   } catch (error) {
-    logger.error(`omi flush failed: ${error.message}`);
+    logger.error(`omi command failed: ${error.message}`);
     recordDebug({ uid, session: sessionId, kind: 'error', text: error.message });
     return { message: speakable(error.message || 'Something went wrong.'), replyOnDevice: true };
+  } finally {
+    boardVoiceService.listening(false);
   }
 }
 

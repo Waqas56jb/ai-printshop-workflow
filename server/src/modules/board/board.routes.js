@@ -9,6 +9,11 @@ const router = Router();
 router.get('/screens', authenticate, requireRole('admin'), boardController.getScreens);
 router.get('/stats', authenticate, requireRole('admin', 'staff'), boardController.getStats);
 router.get('/key', authenticate, requireRole('admin', 'staff'), boardController.getKey);
+router.get(
+  '/events',
+  rateLimit({ windowMs: 60_000, max: 900, key: (req) => `board-events:${req.headers['x-forwarded-for'] || req.ip}` }),
+  boardController.getEvents
+);
 router.get('/', rateLimit({ windowMs: 60_000, max: 120 }), boardController.getBoard);
 
 export default router;

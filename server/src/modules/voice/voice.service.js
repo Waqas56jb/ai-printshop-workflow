@@ -141,9 +141,15 @@ async function enrichPending(items) {
   });
 }
 
-export async function runIntentPipeline({ transcript, userId = null, omiUid = null, userName = null }) {
+export async function runIntentPipeline({
+  transcript,
+  userId = null,
+  omiUid = null,
+  userName = null,
+  wakeHandled = false,
+}) {
   const settings = await settingsService.getSettings();
-  const trigger = settings.voice_trigger_word || '';
+  const trigger = wakeHandled ? '' : settings.voice_trigger_word || '';
   const autoExecute = settings.voice_auto_execute !== false;
 
   if (!startsWithTrigger(transcript, trigger)) {

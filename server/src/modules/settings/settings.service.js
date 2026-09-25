@@ -39,6 +39,7 @@ export const SETTING_DEFAULTS = {
   voice_tv_speaker: true,
   voice_tv_voice: 'alloy',
   tts_enabled: true,
+  omi_require_wake_word: true,
 };
 
 const HIDDEN_KEYS = new Set(['omi_webhook_secret']);
@@ -48,7 +49,18 @@ function sanitizeFileName(name) {
   return path.basename(name).replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-export async function getRawSettings() {
+// Settings are read several times per voice command (~1s per DB round trip from
+// the server), so they're cached briefly; every write below clears the cache.
+const CACHE_TTL_MS = 5_000;
+let rawCache = { at: 0, promise: null };
+let fullCache = { at: 0, promise: null };
+
+function invalidateSettingsCache() {
+  rawCache = { at: 0, promise: null };
+  fullCache = { at: 0, promise: null };
+}
+
+async function loadRawSettings() {
   const rows = unwrap(
     await supabase.from('settings').select('*').order('key', { ascending: true }),
     'Failed to load settings'
@@ -59,19 +71,42 @@ export async function getRawSettings() {
   }, {});
 }
 
-export async function getSettings() {
-  const stored = await getRawSettings();
+export async function getRawSettings() {
+  if (!rawCache.promise || Date.now() - rawCache.at > CACHE_TTL_MS) {
+    const promise = loadRawSettings();
+    rawCache = { at: Date.now(), promise };
+    promise.catch(() => {
+      if (rawCache.promise === promise) rawCache = { at: 0, promise: null };
+    });
+  }
+  return { ...(await rawCache.promise) };
+}
+
+async function loadSettings() {
+  const [stored, peek] = await Promise.all([
+    getRawSettings(),
+    supabase.rpc('peek_next_job_number').then(
+      (result) => result,
+      () => ({ data: null, error: true })
+    ),
+  ]);
   const merged = { ...SETTING_DEFAULTS, ...stored };
   for (const key of HIDDEN_KEYS) {
     delete merged[key];
   }
-  try {
-    const next = unwrap(await supabase.rpc('peek_next_job_number'), 'Failed to peek job number');
-    merged.job_number_next = Number(next);
-  } catch {
-    merged.job_number_next = null;
-  }
+  merged.job_number_next = peek?.error || peek?.data == null ? null : Number(peek.data);
   return merged;
+}
+
+export async function getSettings() {
+  if (!fullCache.promise || Date.now() - fullCache.at > CACHE_TTL_MS) {
+    const promise = loadSettings();
+    fullCache = { at: Date.now(), promise };
+    promise.catch(() => {
+      if (fullCache.promise === promise) fullCache = { at: 0, promise: null };
+    });
+  }
+  return { ...(await fullCache.promise) };
 }
 
 export async function getSetting(key, fallback = null) {
@@ -99,6 +134,7 @@ export async function updateSettings(patch) {
   }));
 
   unwrap(await supabase.from('settings').upsert(rows, { onConflict: 'key' }), 'Failed to update settings');
+  invalidateSettingsCache();
   emitBoardRefresh();
   return getSettings();
 }
@@ -110,6 +146,7 @@ export async function writeSetting(key, value) {
       .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' }),
     'Failed to update setting'
   );
+  invalidateSettingsCache();
   emitBoardRefresh();
   return getSettings();
 }

@@ -10,7 +10,7 @@ import {
   emitBoardConfirm,
   emitBoardSpeak,
   emitBoardTicker,
-  hasBoardSockets,
+  emitBoardListening,
 } from '../../sockets/events.js';
 import { getBoardSession, updateBoardSession, clearBoardSession } from '../../sockets/boardSession.js';
 import { logger } from '../../utils/logger.js';
@@ -213,26 +213,34 @@ export async function ticker({ transcript, reply, userName }) {
   });
 }
 
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+}
+
+// One board:speak per reply: with MP3 audio when TTS answers in time, otherwise
+// text-only so the TV falls back to the browser voice instead of staying silent.
 export async function speak(text) {
-  const settings = await settingsService.getSettings();
   const full = String(text || '').replace(/\s+/g, ' ').trim();
   if (!full) return;
 
-  emitBoardSpeak({ audio_base64: null, mime: 'audio/mpeg', text: full });
-
-  const gatedOff = settings.tts_enabled === false || settings.voice_tv_speaker === false;
-  if (gatedOff) return;
-  if (!hasBoardSockets() && !process.env.VERCEL) return;
-
-  const voice = settings.voice_tv_voice || settings.voice_agent_voice || 'alloy';
-  const audio = await generateSpeech(full, voice);
-  if (!audio?.audio_base64) return;
+  const settings = await settingsService.getSettings();
+  const muted = settings.tts_enabled === false || settings.voice_tv_speaker === false;
+  let audio = null;
+  if (!muted) {
+    const voice = settings.voice_tv_voice || settings.voice_agent_voice || 'alloy';
+    audio = await withTimeout(generateSpeech(full, voice), 6000);
+  }
   emitBoardSpeak({
-    audio_base64: audio.audio_base64,
-    mime: audio.mime || 'audio/mpeg',
+    audio_base64: audio?.audio_base64 || null,
+    mime: audio?.mime || 'audio/mpeg',
     text: full,
+    muted,
   });
-  logger.info(`board:speak audio attached text="${full}"`);
+  logger.info(`board:speak audio=${audio ? 'present' : 'none'} text="${full}"`);
+}
+
+export function listening(active) {
+  emitBoardListening({ active: Boolean(active), at: new Date().toISOString() });
 }
 
 export async function notify({ transcript, reply, userName, boardAction }) {

@@ -204,7 +204,18 @@ export function BoardPage({ boardKey, preview = false, label = '' }) {
           />
         ))}
       </main>
-      <VoiceTickerBar ticker={voice.ticker} updatedAt={updatedAt} />
+      <VoiceTickerBar ticker={voice.ticker} updatedAt={updatedAt} listening={voice.listening} />
+
+      {!preview && !voice.audioReady ? (
+        <button type="button" className="sound-unlock">
+          <span className="mic pulse">
+            <svg viewBox="0 0 24 24">
+              <path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" />
+            </svg>
+          </span>
+          Tap anywhere to turn on voice replies
+        </button>
+      ) : null}
 
       {voice.view === 'spotlight' && voice.focusedJob ? (
         <SpotlightOverlay

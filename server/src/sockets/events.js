@@ -13,8 +13,42 @@ function broadcast(event, payload) {
   emitToRooms(['board', 'staff', 'admin'], event, payload);
 }
 
+// Every voice-driven board event gets a sequence number and is kept briefly so a
+// TV whose WebSocket is blocked or reconnecting can catch up over plain HTTP
+// (GET /api/board/events?after=<seq>) instead of silently missing commands.
+const EVENT_LOG_LIMIT = 80;
+const REPLAY_WINDOW_MS = 30_000;
+const eventLog = [];
+let boardSeq = 0;
+
+function recordBoardEvent(event, payload) {
+  boardSeq += 1;
+  const stamped = { ...(payload || {}), _seq: boardSeq };
+  eventLog.push({ seq: boardSeq, event, payload: stamped, at: Date.now() });
+  if (eventLog.length > EVENT_LOG_LIMIT) eventLog.shift();
+  return stamped;
+}
+
+export function listBoardEventsAfter(after) {
+  const cursor = Number(after);
+  if (!Number.isFinite(cursor) || cursor < 0) {
+    return { seq: boardSeq, events: [] };
+  }
+  if (cursor > boardSeq) {
+    return { seq: boardSeq, reset: true, events: [] };
+  }
+  const since = Date.now() - REPLAY_WINDOW_MS;
+  return {
+    seq: boardSeq,
+    events: eventLog
+      .filter((row) => row.seq > cursor && row.at >= since)
+      .map(({ seq, event, payload }) => ({ seq, event, payload })),
+  };
+}
+
 function broadcastBoard(event, payload) {
-  emitToRooms(['board'], event, payload);
+  const stamped = recordBoardEvent(event, payload);
+  emitToRooms(['board'], event, stamped);
   void relayBoardEvent(event, payload);
 }
 
@@ -63,12 +97,14 @@ const BOARD_EVENTS = new Set([
   'board:confirm',
   'board:speak',
   'board:ticker',
+  'board:listening',
   'board:refresh',
 ]);
 
 export function applyRelayedBoardEvent(event, payload) {
   if (!BOARD_EVENTS.has(event)) return false;
-  emitToRooms(['board'], event, payload);
+  const { _seq, ...clean } = payload || {};
+  emitToRooms(['board'], event, recordBoardEvent(event, clean));
   logger.info(`board relay applied ${event}`);
   return true;
 }
@@ -135,4 +171,8 @@ export function emitBoardSpeak(payload) {
 
 export function emitBoardTicker(payload) {
   broadcastBoard('board:ticker', payload);
+}
+
+export function emitBoardListening(payload) {
+  broadcastBoard('board:listening', payload);
 }
