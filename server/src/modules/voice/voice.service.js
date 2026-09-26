@@ -179,9 +179,23 @@ export async function runIntentPipeline({
   const { intent, jobs } = parsed;
   logger.info(`intent action=${intent.action} job_ref=${intent.job_ref || ''} confidence=${intent.confidence}`);
   if (intent.action === 'unknown') {
-    const message = intent.reply || "Sorry, I didn't catch a job command. Try asking what's due today.";
-    await notifyBoard({ transcript: cleaned, reply: message, userName });
-    return { ignored: true, message };
+    // Short and fixed on purpose: GPT's own clarifying questions ("want me to pull
+    // up a job or check what's due today?") sounded like the TV chatting by itself.
+    const message = "Sorry, I didn't catch that.";
+    const [command] = await Promise.all([
+      saveVoiceCommand({
+        transcript: cleaned,
+        omi_uid: omiUid,
+        user_id: userId,
+        intent,
+        action: 'unknown',
+        status: 'failed',
+        error: 'Not understood',
+      }).catch(() => null),
+      notifyBoard({ transcript: cleaned, reply: message, userName }),
+    ]);
+    if (command) emitVoiceCommand(command);
+    return { command, ignored: true, understood: false, message };
   }
 
   const focusedJobId = boardVoiceService.getFocusedJobId();
@@ -190,46 +204,60 @@ export async function runIntentPipeline({
   const pending = needsConfirmation(intent, matches, autoExecute, threshold);
 
   if (pending) {
-    const command = await saveVoiceCommand({
-      transcript: cleaned,
-      omi_uid: omiUid,
-      user_id: userId,
-      intent,
-      action: intent.action,
-      status: 'pending_confirmation',
-      job_id: job?.id || null,
-      error: matches.length > 1 ? 'Multiple matching jobs' : null,
-    });
-    emitVoiceCommand(command);
     const message =
       matches.length > 1
         ? `I found more than one match. Please confirm which job you mean.`
-        : intent.reply || 'Please confirm that command.';
-    await notifyBoard({ transcript: cleaned, reply: message, userName });
+        : `${intent.reply || 'Please confirm that command.'} Say yes or no.`;
+    const [command] = await Promise.all([
+      saveVoiceCommand({
+        transcript: cleaned,
+        omi_uid: omiUid,
+        user_id: userId,
+        intent,
+        action: intent.action,
+        status: 'pending_confirmation',
+        job_id: job?.id || null,
+        error: matches.length > 1 ? 'Multiple matching jobs' : null,
+      }),
+      notifyBoard({ transcript: cleaned, reply: message, userName }),
+    ]);
+    emitVoiceCommand(command);
     return { command, message, needs_confirmation: true };
   }
 
+  let executed;
   try {
-    const executed = await executeIntent(intent, { userId, jobs, focusedJobId });
-    const command = await saveVoiceCommand({
-      transcript: cleaned,
-      omi_uid: omiUid,
-      user_id: userId,
-      intent,
-      action: intent.action,
-      status: 'executed',
-      job_id: executed.job_id,
-    });
-    emitVoiceCommand(command);
-    await notifyBoard({
-      transcript: cleaned,
-      reply: executed.reply,
-      userName,
-      boardAction: executed.board_action,
-    });
-    return { command, message: executed.reply, result: executed.result };
+    executed = await executeIntent(intent, { userId, jobs, focusedJobId });
   } catch (error) {
-    const command = await saveVoiceCommand({
+    executed = { error };
+  }
+
+  if (!executed.error) {
+    // Move the screen and write the history row at the same time.
+    const [command] = await Promise.all([
+      saveVoiceCommand({
+        transcript: cleaned,
+        omi_uid: omiUid,
+        user_id: userId,
+        intent,
+        action: intent.action,
+        status: 'executed',
+        job_id: executed.job_id,
+      }),
+      notifyBoard({
+        transcript: cleaned,
+        reply: executed.reply,
+        userName,
+        boardAction: executed.board_action,
+      }),
+    ]);
+    emitVoiceCommand(command);
+    return { command, message: executed.reply, result: executed.result };
+  }
+
+  const message = executed.error.message || 'Command failed.';
+  const [command] = await Promise.all([
+    saveVoiceCommand({
       transcript: cleaned,
       omi_uid: omiUid,
       user_id: userId,
@@ -237,13 +265,12 @@ export async function runIntentPipeline({
       action: intent.action,
       status: 'failed',
       job_id: job?.id || null,
-      error: error.message,
-    });
-    emitVoiceCommand(command);
-    const message = error.message || 'Command failed.';
-    await notifyBoard({ transcript: cleaned, reply: message, userName });
-    return { command, message };
-  }
+      error: executed.error.message,
+    }),
+    notifyBoard({ transcript: cleaned, reply: message, userName }),
+  ]);
+  emitVoiceCommand(command);
+  return { command, message };
 }
 
 export async function confirmCommand(id, userId, { job_id, allow_skip } = {}) {

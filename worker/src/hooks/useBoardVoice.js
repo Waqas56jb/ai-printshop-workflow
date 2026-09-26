@@ -26,6 +26,32 @@ function speakFallback(text, onDone) {
   }
 }
 
+const SPOKEN_KEY = 'board-last-spoken';
+
+// If the board is open in two tabs of the same browser, only the first tab to
+// receive a reply speaks it.
+function speakOnce(seq, play) {
+  const run = () => {
+    const id = Number(seq);
+    if (Number.isFinite(id)) {
+      try {
+        const last = JSON.parse(localStorage.getItem(SPOKEN_KEY) || 'null');
+        // Sequence numbers restart when the server restarts, so old entries expire.
+        if (last && Date.now() - last.at < 60_000 && id <= last.seq) return;
+        localStorage.setItem(SPOKEN_KEY, JSON.stringify({ seq: id, at: Date.now() }));
+      } catch {
+        /* storage blocked — just speak */
+      }
+    }
+    play();
+  };
+  if (navigator.locks?.request) {
+    navigator.locks.request('board-speak', run).catch(run);
+  } else {
+    run();
+  }
+}
+
 // Dedicated socket for voice-driven board reactions (spotlight, artwork, TTS).
 // Joins the same "board" room as the refresh socket so OMI commands hit the TV live.
 export function useBoardVoice(
@@ -148,7 +174,11 @@ export function useBoardVoice(
         setView('confirm');
         break;
       case 'board:speak':
-        if (!payload.muted) playAudio(payload.audio_base64, payload.mime, payload.text);
+        // Admin/Staff embed this board as a silent preview — only the real TV talks,
+        // otherwise several tabs say the same reply and it sounds like agents chatting.
+        if (!payload.muted && !preview) {
+          speakOnce(payload._seq, () => playAudio(payload.audio_base64, payload.mime, payload.text));
+        }
         break;
       case 'board:ticker':
         setTicker(payload);
@@ -173,6 +203,7 @@ export function useBoardVoice(
       try {
         const params = new URLSearchParams({ after: String(lastSeqRef.current ?? -1) });
         if (key) params.set('key', key);
+        if (!preview) params.set('tv', '1');
         const response = await fetch(`${API_URL}/api/board/events?${params}`, { cache: 'no-store' });
         if (response.ok) {
           const { data } = await response.json();
@@ -192,7 +223,7 @@ export function useBoardVoice(
       stopped = true;
       clearTimeout(timer);
     };
-  }, [enabled, key]);
+  }, [enabled, key, preview]);
 
   useEffect(() => {
     if (!enabled) return undefined;

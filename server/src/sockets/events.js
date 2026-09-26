@@ -1,4 +1,5 @@
 import { getIO } from './index.js';
+import { getBoardStats } from './boardScreens.js';
 import { invalidateBoardDisplayCache } from '../modules/board/board.service.js';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
@@ -50,6 +51,18 @@ function broadcastBoard(event, payload) {
   const stamped = recordBoardEvent(event, payload);
   emitToRooms(['board'], event, stamped);
   void relayBoardEvent(event, payload);
+}
+
+// A real TV (not an Admin/Staff preview) is showing the board right now — either
+// over a socket or by polling /api/board/events in the last few seconds.
+let lastTvPollAt = 0;
+
+export function noteTvPoll() {
+  lastTvPollAt = Date.now();
+}
+
+export function tvScreenActive() {
+  return getBoardStats().screens_online > 0 || Date.now() - lastTvPollAt < 10_000;
 }
 
 export function hasBoardSockets() {

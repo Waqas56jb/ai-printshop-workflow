@@ -5,11 +5,12 @@ import { logger } from '../../utils/logger.js';
 import * as voiceService from '../voice/voice.service.js';
 import * as boardVoiceService from '../voice/boardVoice.service.js';
 import * as settingsService from '../settings/settings.service.js';
-import { closeWindow, gateUtterance, openWindow, wordCount } from './commandGate.js';
+import { closeWindow, findWake, gateUtterance, openWindow, wakePhrases, wordCount } from './commandGate.js';
 import { ingestAudio, transcribeEnglish } from './omi.audio.js';
+import { tvScreenActive } from '../../sockets/events.js';
 
 const debugEvents = [];
-const DEBUG_LIMIT = 20;
+const DEBUG_LIMIT = 150;
 
 function recordDebug(entry) {
   debugEvents.unshift({ at: new Date().toISOString(), ...entry });
@@ -25,10 +26,11 @@ export function listDebugEvents() {
 // race-free and much faster than the old Supabase round trips per segment.
 const buffers = new Map();
 const audioSeen = new Map();
-const SETTLE_MS = 350;
+const SETTLE_MS = 250;
 const QUIET_MS = 900;
 const INCOMPLETE_EXTRA_MS = 1300;
-const CONFIRM_WINDOW_MS = 15_000;
+const CONFIRM_WINDOW_MS = 12_000;
+const FOLLOW_UP_MS = 8_000;
 const PENDING_MAX_AGE_MS = 2 * 60 * 1000;
 const SHORT_COMMANDS = /^(done|ready|next|back|zoom|yes|yeah|yep|no|nope|stop|cancel)[.!?]?$/i;
 const YES = /^(yes|yeah|yep|yup|ok|okay|confirm|sure|do it|go ahead)[.!?]?$/i;
@@ -236,7 +238,7 @@ async function settleBuffer(key, uid, sessionId, version) {
   const settings = await settingsService.getSettings();
   if (entry.version !== version) return;
 
-  const gate = gateUtterance(uid, text, settings);
+  const gate = gateWithEchoGuard(uid, text, settings);
   // "Hey board, pull up…" often arrives split across segments — give the rest of
   // the sentence one short extra wait before acting on a half command.
   if (gate.kind === 'command' && !entry.extended && !commandLooksComplete(gate.command)) {
@@ -249,6 +251,18 @@ async function settleBuffer(key, uid, sessionId, version) {
   buffers.delete(key);
   const result = await processGated(uid, sessionId, text, gate);
   entry.resolve?.(result);
+}
+
+// The TV's own voice reaches the OMI mic. Drop anything heard while it's
+// talking, or anything that repeats what it just said.
+function gateWithEchoGuard(uid, text, settings) {
+  if (boardVoiceService.isEchoOfBoard(text)) return { kind: 'ignore', reason: 'echo' };
+  // While the TV talks, only a deliberate "Hey Board, …" gets through (barge-in);
+  // the TV never says the wake phrase itself, so that can't be its own echo.
+  if (boardVoiceService.isBoardSpeaking() && !findWake(text, wakePhrases(settings))) {
+    return { kind: 'ignore', reason: 'tv_speaking' };
+  }
+  return gateUtterance(uid, text, settings);
 }
 
 async function processGated(uid, sessionId, text, gate) {
@@ -267,7 +281,7 @@ async function processGated(uid, sessionId, text, gate) {
 // Entry point for speech that is already a finished utterance (raw-audio path).
 export async function handleSpokenText(uid, text, { sessionId = 'audio' } = {}) {
   const settings = await settingsService.getSettings();
-  const gate = gateUtterance(uid, text, settings);
+  const gate = gateWithEchoGuard(uid, text, settings);
   return processGated(uid, sessionId, text, gate);
 }
 
@@ -306,32 +320,59 @@ async function latestPendingCommand(omiUid) {
   return data;
 }
 
+const profileCache = new Map();
+
+async function profileForDevice(uid) {
+  const cached = profileCache.get(uid);
+  if (cached && Date.now() - cached.at < 60_000) return cached.profile;
+  const profile = await voiceService.findProfileByOmiUid(uid).catch(() => null);
+  profileCache.set(uid, { profile, at: Date.now() });
+  return profile;
+}
+
 async function runCommand(uid, sessionId, command) {
   closeWindow(uid);
   boardVoiceService.listening(true);
   logger.info(`omi command uid=${uid} text=${command}`);
   try {
-    const profile = await voiceService.findProfileByOmiUid(uid);
-    await touchDevice(uid, profile?.id || null);
-    const pending = await latestPendingCommand(uid);
+    const saysYesNo = YES.test(command) || NO.test(command);
+    const [profile, pending] = await Promise.all([
+      profileForDevice(uid),
+      saysYesNo ? latestPendingCommand(uid) : null,
+    ]);
+    touchDevice(uid, profile?.id || null).catch((error) => logger.warn(`omi touch failed: ${error.message}`));
 
-    if (pending && YES.test(command)) {
-      const result = await voiceService.confirmCommand(pending.id, profile?.id || pending.user_id);
-      return finishReply(uid, sessionId, command, result.message || 'Okay, done.');
-    }
-    if (pending && NO.test(command)) {
+    let result;
+    const choice = boardVoiceService.resolvePendingChoice(command);
+    if (choice) {
+      const reply = `Here's ${choice.job_number} for ${choice.customer_name || 'the customer'}.`;
+      await boardVoiceService.notify({
+        transcript: command,
+        reply,
+        userName: profile?.full_name || null,
+        boardAction: { type: 'focus', job_id: choice.job_id },
+      });
+      result = { message: reply };
+    } else if (pending && YES.test(command)) {
+      const confirmed = await voiceService.confirmCommand(pending.id, profile?.id || pending.user_id);
+      result = { message: confirmed.message || 'Okay, done.' };
+    } else if (pending && NO.test(command)) {
       await voiceService.rejectCommand(pending.id);
-      return finishReply(uid, sessionId, command, 'Okay, cancelled.');
+      boardVoiceService.speak('Okay, cancelled.').catch(() => {});
+      result = { message: 'Okay, cancelled.' };
+    } else {
+      result = await voiceService.runIntentPipeline({
+        transcript: command,
+        userId: profile?.id || null,
+        omiUid: uid,
+        userName: profile?.full_name || null,
+        wakeHandled: true,
+      });
     }
-
-    const result = await voiceService.runIntentPipeline({
-      transcript: command,
-      userId: profile?.id || null,
-      omiUid: uid,
-      userName: profile?.full_name || null,
-      wakeHandled: true,
-    });
-    if (result.needs_confirmation) openWindow(uid, CONFIRM_WINDOW_MS);
+    // Conversation mode: after the TV answers, a follow-up ("show the artwork",
+    // "mark it done", "yes") works without saying the wake phrase again.
+    const followUp = result.needs_confirmation ? CONFIRM_WINDOW_MS : FOLLOW_UP_MS;
+    openWindow(uid, boardVoiceService.msUntilBoardQuiet() + followUp);
     const message = speakable(result.message);
     if (!message) {
       recordDebug({ uid, session: sessionId, kind: 'ignore', text: command, reason: 'no_reply' });
@@ -347,13 +388,17 @@ async function runCommand(uid, sessionId, command) {
   }
 }
 
+// One voice at a time: when a TV board is live it speaks the reply, so the OMI
+// app gets an empty reply instead of reading the same sentence out on the phone.
 async function finishReply(uid, sessionId, transcript, rawMessage) {
   const message = speakable(rawMessage);
   const settings = await settingsService.getSettings();
-  const replyOnDevice = settings.voice_reply_on_device !== false;
-  recordDebug({ uid, session: sessionId, kind: 'reply', text: message, transcript });
-  logger.info(`omi reply uid=${uid} message=${message}`);
-  if (replyOnDevice) await sendOmiNotification(uid, message);
+  const tvLive = tvScreenActive();
+  const replyOnDevice = settings.voice_reply_on_device !== false && !tvLive;
+  recordDebug({ uid, session: sessionId, kind: 'reply', text: message, transcript, spoken_by: tvLive ? 'tv' : 'omi' });
+  logger.info(`omi reply uid=${uid} by=${tvLive ? 'tv' : 'omi'} message=${message}`);
+  if (!replyOnDevice) return EMPTY;
+  await sendOmiNotification(uid, message);
   return { message, replyOnDevice };
 }
 

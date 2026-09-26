@@ -88,3 +88,12 @@ export const boardRelay = asyncHandler(async (req, res) => {
 export const debug = asyncHandler(async (_req, res) => {
   return sendOk(res, omiService.listDebugEvents(), 'OMI debug feed');
 });
+
+// Same feed, guarded by the OMI webhook secret instead of an admin login, so the
+// live gate decisions (heard / ignored + why / command / reply) can be checked
+// from a terminal: GET /api/omi/live-debug?secret=...
+export const liveDebug = asyncHandler(async (req, res) => {
+  await omiService.verifyOmiSecret(req);
+  res.set('Cache-Control', 'no-store');
+  return sendOk(res, omiService.listDebugEvents(), 'OMI live debug feed');
+});

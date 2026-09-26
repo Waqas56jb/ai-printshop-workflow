@@ -4,7 +4,7 @@ import { ApiError } from '../../utils/ApiError.js';
 import { optionalUser } from '../../middleware/auth.js';
 import * as settingsService from '../settings/settings.service.js';
 import { getBoardStats, listScreens, noteBoardFetch } from '../../sockets/boardScreens.js';
-import { listBoardEventsAfter } from '../../sockets/events.js';
+import { listBoardEventsAfter, noteTvPoll } from '../../sockets/events.js';
 import * as boardService from './board.service.js';
 
 let accessCache = { at: 0, raw: null };
@@ -28,6 +28,7 @@ export const getEvents = asyncHandler(async (req, res) => {
       throw new ApiError(401, 'Board key required');
     }
   }
+  if (req.query.tv === '1') noteTvPoll();
   res.set('Cache-Control', 'no-store');
   return sendOk(res, listBoardEventsAfter(req.query.after), 'Board events');
 });

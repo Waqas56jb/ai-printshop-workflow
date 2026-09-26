@@ -9,6 +9,7 @@ import * as stagesService from '../stages/stages.service.js';
 import * as customersService from '../customers/customers.service.js';
 import * as settingsService from '../settings/settings.service.js';
 import { buildIntentPrompt } from './intent.prompt.js';
+import { fastIntent } from './fastIntent.js';
 
 const intentSchema = z.object({
   action: z.enum([
@@ -51,18 +52,45 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Stage + active-job lists for matching, reused across back-to-back voice
+// commands to save two DB round trips. Cleared after any voice-driven change;
+// moves re-read the job's live stage anyway (see move_stage below).
+const CONTEXT_TTL_MS = 8000;
+let contextCache = { at: 0, promise: null };
+
+export function invalidateIntentContext() {
+  contextCache = { at: 0, promise: null };
+}
+
+function loadIntentContext() {
+  if (!contextCache.promise || Date.now() - contextCache.at > CONTEXT_TTL_MS) {
+    const promise = Promise.all([stagesService.listStages(), jobsService.listActiveJobSummaries()]).then(
+      ([stages, jobs]) => ({ stages, jobs })
+    );
+    contextCache = { at: Date.now(), promise };
+    promise.catch(() => {
+      if (contextCache.promise === promise) contextCache = { at: 0, promise: null };
+    });
+  }
+  return contextCache.promise;
+}
+
 export async function parseIntent(transcript) {
+  const { stages, jobs } = await loadIntentContext();
+
+  const quick = fastIntent(transcript, { jobs, stages });
+  if (quick) {
+    logger.info(`intent fast-path action=${quick.action} job_ref=${quick.job_ref || ''}`);
+    return { intent: quick, stages, jobs, fast: true };
+  }
+
   if (!env.OPENAI_API_KEY) {
     throw new ApiError(500, 'OPENAI_API_KEY is not configured');
   }
 
-  const [stages, jobs] = await Promise.all([
-    stagesService.listStages(),
-    jobsService.listActiveJobSummaries(),
-  ]);
-
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
+    temperature: 0,
     response_format: { type: 'json_object' },
     messages: [
       {
@@ -163,6 +191,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         userId,
         { source: 'voice', role: 'staff' }
       );
+      invalidateIntentContext();
       return {
         result: job,
         reply: intent.reply || `Created job ${job.job_number} for ${customer.name}.`,
@@ -171,11 +200,13 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
       };
     }
     case 'move_stage': {
-      const { job } = resolveJobWithFocus(intent, jobs, focusedJobId);
-      if (!job) {
+      const { job: matched } = resolveJobWithFocus(intent, jobs, focusedJobId);
+      if (!matched) {
         throw new ApiError(400, 'Could not resolve job');
       }
-      const stages = await stagesService.listStages();
+      // Read the live stage: the cached job list may predate a move made in Admin.
+      const [stages, live] = await Promise.all([stagesService.listStages(), jobsService.getJobRow(matched.id)]);
+      const job = { ...matched, stage_id: live.stage_id };
       const stageRef = String(intent.stage || '').trim().toLowerCase();
       let stage = null;
       if (ADVANCE_STAGE_WORDS.has(stageRef)) {
@@ -198,6 +229,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         throw new ApiError(400, `Can't skip from ${fromName} to ${stage.name}`);
       }
       const moved = await jobsService.moveJobStage(job.id, stage.id, userId, 'voice');
+      invalidateIntentContext();
       return {
         result: moved,
         reply: intent.reply || `Moved ${job.job_number} to ${stage.name}.`,

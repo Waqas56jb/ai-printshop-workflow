@@ -16,7 +16,12 @@ const END_SILENCE_MS = 700;
 const MIN_SPEECH_MS = 300;
 const MAX_UTTERANCE_MS = 15_000;
 const IDLE_FLUSH_MS = 2500;
-const VAD_RMS = Number(process.env.OMI_VAD_RMS) || 450;
+// Speech threshold adapts to each device's background noise (3x the running
+// noise floor), clamped so a very quiet mic still triggers and a noisy shop floor
+// doesn't count machine hum as speech.
+const VAD_MIN_RMS = Number(process.env.OMI_VAD_MIN_RMS) || 180;
+const VAD_MAX_RMS = Number(process.env.OMI_VAD_MAX_RMS) || 2500;
+const NOISE_FACTOR = 3;
 const TRANSCRIBE_MODEL = process.env.TRANSCRIBE_MODEL || 'gpt-4o-transcribe';
 const TRANSCRIBE_URL = 'https://api.openai.com/v1/audio/transcriptions';
 
@@ -35,6 +40,7 @@ function streamFor(uid, sampleRate) {
       silenceMs: 0,
       active: false,
       timer: null,
+      noise: 150,
     };
     streams.set(uid, stream);
   }
@@ -71,7 +77,10 @@ export function ingestAudio(uid, chunk, sampleRate, onUtterance) {
   let offset = 0;
   for (; offset + frameBytes <= data.length; offset += frameBytes) {
     const frame = Buffer.from(data.subarray(offset, offset + frameBytes));
-    const loud = frameRms(frame) >= VAD_RMS;
+    const rms = frameRms(frame);
+    const threshold = Math.min(VAD_MAX_RMS, Math.max(VAD_MIN_RMS, stream.noise * NOISE_FACTOR));
+    const loud = rms >= threshold;
+    if (!loud) stream.noise = stream.noise * 0.97 + rms * 0.03;
 
     if (!stream.active) {
       if (loud) {

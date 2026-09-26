@@ -10,9 +10,30 @@ export function trimForSpeech(text) {
   return `${clean.slice(0, MAX_CHARS - 1).trimEnd()}…`;
 }
 
+// Replies repeat a lot ("Back to the board.", "Next file.", "Here's J-1042 for
+// Sarah Khan."), so generated audio is kept in memory and replayed instantly.
+const CACHE_LIMIT = 200;
+const cache = new Map();
+
 export async function generateSpeech(text, voice = 'alloy') {
   const input = trimForSpeech(text);
   if (!input) return null;
+  const cacheKey = `${voice || 'alloy'}|${input.toLowerCase()}`;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    cache.delete(cacheKey);
+    cache.set(cacheKey, cached);
+    return cached;
+  }
+  const result = await synthesize(input, voice);
+  if (result) {
+    cache.set(cacheKey, result);
+    if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value);
+  }
+  return result;
+}
+
+async function synthesize(input, voice) {
   const apiKey = env.OPENAI_API_KEY;
   if (!apiKey) {
     logger.warn('TTS skipped: OPENAI_API_KEY is not configured');

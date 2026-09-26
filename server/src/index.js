@@ -11,6 +11,11 @@ if (!process.env.VERCEL) {
   initSockets(server);
   server.listen(env.PORT, () => {
     logger.info(`Server listening on port ${env.PORT}`);
+    setTimeout(() => {
+      import('./modules/voice/boardVoice.service.js')
+        .then(({ warmSpeechCache }) => warmSpeechCache())
+        .catch((error) => logger.warn(`speech cache warm-up skipped: ${error.message}`));
+    }, 3000);
   });
 }
 
