@@ -77,7 +77,7 @@ export function VoiceTickerBar({ ticker, updatedAt, listening = false }) {
               </svg>
             </span>
             <div className="tick-copy">
-              <b>Say &ldquo;Hey Board&rdquo; to give a command</b>
+              <b>Listening for shop commands</b>
             </div>
           </div>
         )}
