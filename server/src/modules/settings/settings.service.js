@@ -39,7 +39,9 @@ export const SETTING_DEFAULTS = {
   voice_tv_speaker: true,
   voice_tv_voice: 'alloy',
   tts_enabled: true,
-  omi_require_wake_word: true,
+  // Empty = no wake word: OMI commands are detected from what is said.
+  // Set (e.g. "hey board", comma-separated for several) to require it again.
+  voice_wake_word: '',
 };
 
 const HIDDEN_KEYS = new Set(['omi_webhook_secret']);

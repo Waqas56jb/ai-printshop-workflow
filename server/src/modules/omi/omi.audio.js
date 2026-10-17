@@ -144,11 +144,11 @@ async function vocabularyPrompt() {
       jobsService.listActiveJobSummaries(),
       stagesService.listStages(),
     ]);
-    const wake = wakePhrases(settings)[0] || 'hey board';
+    const wake = wakePhrases(settings)?.[0];
     const customers = [...new Set(jobs.map((job) => job.customer_name).filter(Boolean))].slice(0, 40);
     const numbers = jobs.map((job) => job.job_number).filter(Boolean).slice(0, 30);
     const text = [
-      `${wake.replace(/\b\w/g, (c) => c.toUpperCase())}, pull up the job. Show the artwork. Mark it done.`,
+      `${wake ? `${wake.replace(/\b\w/g, (c) => c.toUpperCase())}, ` : ''}Pull up the job. Show the artwork. Mark it done.`,
       customers.length ? `Customers: ${customers.join(', ')}.` : '',
       numbers.length ? `Jobs: ${numbers.join(', ')}.` : '',
       `Stages: ${stages.map((stage) => stage.name).join(', ')}.`,

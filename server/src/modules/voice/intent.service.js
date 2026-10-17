@@ -75,6 +75,42 @@ function loadIntentContext() {
   return contextCache.promise;
 }
 
+// Command detection for always-on OMI speech (no wake word). A fast-path match
+// is a definite command; `looksLikeCommand` covers phrasings that need GPT to
+// fill in details (new job, notes, assign, status) but are clearly commands.
+export async function detectFastIntent(text) {
+  const { stages, jobs } = await loadIntentContext();
+  return fastIntent(text, { jobs, stages });
+}
+
+export { looksLikeCommand } from './fastIntent.js';
+
+const CLASSIFIER_PROMPT = `You label one utterance overheard by a wearable mic in a print shop.
+Reply with exactly one word.
+COMMAND = the speaker is telling the shop's job board / assistant to do something with jobs, orders, customers, artwork, stages, notes, or the TV board. Examples: "pull up Sarah's job", "move the gym banners to printing", "new job for Ali, fifty hoodies", "sarah ki job printing me daal do", "what's left for today".
+CHAT = ordinary conversation between people, even if it mentions customers, orders or products. Examples: "she's coming to pick this up later", "I'll grab the banners after lunch", "I had biryani for lunch", "did you call Metro Gym?".`;
+
+// Cheap yes/no gate for utterances the fast path doesn't recognise. Any failure
+// counts as CHAT so an outage can never turn conversation into actions.
+export async function classifyCommand(text) {
+  if (!env.OPENAI_API_KEY) return 'CHAT';
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      max_tokens: 5,
+      messages: [
+        { role: 'system', content: CLASSIFIER_PROMPT },
+        { role: 'user', content: text },
+      ],
+    });
+    return /command/i.test(completion.choices[0]?.message?.content || '') ? 'COMMAND' : 'CHAT';
+  } catch (error) {
+    logger.error(`command classifier failed: ${error.message}`);
+    return 'CHAT';
+  }
+}
+
 export async function parseIntent(transcript) {
   const { stages, jobs } = await loadIntentContext();
 
@@ -165,10 +201,19 @@ export function needsConfirmation(intent, matches, autoExecute, threshold = 0.7)
 
 const ADVANCE_STAGE_WORDS = new Set(['', 'next', 'forward', 'done', 'ready', 'finished', 'complete', 'completed']);
 
-function describeCandidate(job, allMatches) {
-  const label = job.customer_name || job.job_number;
-  const duplicate = allMatches.filter((item) => (item.customer_name || item.job_number) === label).length > 1;
-  return duplicate ? `${label}'s ${job.title || job.job_number}` : label;
+const COUNT_WORDS = ['', 'One', 'Two', 'Three', 'Four', 'Five'];
+
+// "Two jobs for Sarah — J-1042 Hoodie or J-1031 50 T-Shirts?"
+function candidatesPrompt(matches) {
+  const shown = matches.slice(0, 4);
+  const customers = [...new Set(shown.map((job) => job.customer_name).filter(Boolean))];
+  const sameCustomer = customers.length === 1;
+  const forWho = sameCustomer ? ` for ${customers[0].split(/\s+/)[0]}` : '';
+  const items = shown.map((job) =>
+    [job.job_number, sameCustomer ? null : job.customer_name, job.title].filter(Boolean).join(' ')
+  );
+  const list = items.length > 1 ? `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}` : items[0];
+  return `${COUNT_WORDS[matches.length] || matches.length} jobs${forWho} — ${list}?`;
 }
 
 export async function executeIntent(intent, { userId, jobs, allowSkip = false, focusedJobId = null }) {
@@ -317,8 +362,7 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
         };
       }
       if (matches.length > 1) {
-        const names = matches.map((item) => describeCandidate(item, matches)).join(', ');
-        const prompt = intent.reply || `Which one — ${names}?`;
+        const prompt = candidatesPrompt(matches);
         return {
           result: matches,
           reply: prompt,

@@ -5,7 +5,16 @@ import { logger } from '../../utils/logger.js';
 import * as voiceService from '../voice/voice.service.js';
 import * as boardVoiceService from '../voice/boardVoice.service.js';
 import * as settingsService from '../settings/settings.service.js';
-import { closeWindow, findWake, gateUtterance, openWindow, wakePhrases, wordCount } from './commandGate.js';
+import {
+  closeWindow,
+  findWake,
+  gateUtterance,
+  isWindowOpen,
+  openWindow,
+  wakePhrases,
+  wordCount,
+} from './commandGate.js';
+import { detectFastIntent } from '../voice/intent.service.js';
 import { ingestAudio, transcribeEnglish } from './omi.audio.js';
 import { tvScreenActive } from '../../sockets/events.js';
 
@@ -182,8 +191,28 @@ function joined(parts) {
   return (parts || []).join(' ').replace(/\s+/g, ' ').trim();
 }
 
+// A reply to the TV's question ("the hoodie", "yes", "second one") inside the
+// conversation window: short and complete as-is, so it doesn't wait for more.
+const SHORT_ANSWER_MS = 400;
+
+function isShortAnswer(uid, text) {
+  return isWindowOpen(uid) && wordCount(text) <= 3;
+}
+
 function commandLooksComplete(command) {
   return isCompleteSentence(command) || wordCount(command) >= 4 || SHORT_COMMANDS.test(command);
+}
+
+// "OMI connected" in Admin reads omi_devices.last_heard_at, so every webhook
+// counts as the device being heard — not only the ones that ran a command.
+const lastTouched = new Map();
+const TOUCH_EVERY_MS = 30_000;
+
+function heartbeat(uid) {
+  const last = lastTouched.get(uid) || 0;
+  if (Date.now() - last < TOUCH_EVERY_MS) return;
+  lastTouched.set(uid, Date.now());
+  touchDevice(uid).catch((error) => logger.warn(`omi heartbeat failed: ${error.message}`));
 }
 
 export async function handleWebhook({ uid, sessionId = '', payload }) {
@@ -191,6 +220,7 @@ export async function handleWebhook({ uid, sessionId = '', payload }) {
   const heard = joined(texts) || '(empty)';
   recordDebug({ uid, session: sessionId, kind: 'webhook', text: heard });
   logger.info(`omi webhook uid=${uid} text=${heard}`);
+  heartbeat(uid);
   if (!texts.length) return EMPTY;
   if (audioPathActive(uid)) {
     recordDebug({ uid, session: sessionId, kind: 'ignore', text: heard, reason: 'audio_path_active' });
@@ -198,7 +228,14 @@ export async function handleWebhook({ uid, sessionId = '', payload }) {
   }
 
   const key = `${uid}::${sessionId || 'default'}`;
-  const entry = buffers.get(key) || { texts: [], version: 0, timer: null, resolve: null, extended: false };
+  const entry = buffers.get(key) || {
+    texts: [],
+    version: 0,
+    timer: null,
+    resolve: null,
+    extended: false,
+    firstAt: Date.now(),
+  };
   // Keep only the tail of long overheard conversation so the buffer can't grow unbounded.
   entry.texts = mergeTranscriptParts(entry.texts, texts).slice(-4);
   entry.version += 1;
@@ -208,7 +245,14 @@ export async function handleWebhook({ uid, sessionId = '', payload }) {
   clearTimeout(entry.timer);
   entry.resolve?.(EMPTY);
 
-  const wait = isCompleteSentence(joined(entry.texts)) ? SETTLE_MS : QUIET_MS;
+  // A recognised command ("what's due today") settles right away instead of
+  // waiting for more segments.
+  const myVersion = entry.version;
+  const text = joined(entry.texts);
+  const fast = isCompleteSentence(text) ? null : await detectFastIntent(text).catch(() => null);
+  if (entry.version !== myVersion) return EMPTY; // a newer segment took over meanwhile
+  const wait =
+    isCompleteSentence(text) || fast ? SETTLE_MS : isShortAnswer(uid, text) ? SHORT_ANSWER_MS : QUIET_MS;
   return new Promise((resolve) => {
     entry.resolve = resolve;
     scheduleSettle(key, uid, sessionId, wait);
@@ -234,40 +278,51 @@ function scheduleSettle(key, uid, sessionId, wait) {
 async function settleBuffer(key, uid, sessionId, version) {
   const entry = buffers.get(key);
   if (!entry || entry.version !== version) return;
+  const settleAt = Date.now();
   const text = joined(entry.texts);
-  const settings = await settingsService.getSettings();
+  const [settings, fast] = await Promise.all([
+    settingsService.getSettings(),
+    detectFastIntent(text).catch(() => null),
+  ]);
   if (entry.version !== version) return;
 
-  const gate = gateWithEchoGuard(uid, text, settings);
-  // "Hey board, pull up…" often arrives split across segments — give the rest of
-  // the sentence one short extra wait before acting on a half command.
-  if (gate.kind === 'command' && !entry.extended && !commandLooksComplete(gate.command)) {
+  // A half sentence ("pull up", "move the") gets one short extra wait for the
+  // rest — unless it's already a recognised command, which runs immediately.
+  if (!fast && !entry.extended && !commandLooksComplete(text) && !isShortAnswer(uid, text)) {
     entry.extended = true;
-    recordDebug({ uid, session: sessionId, kind: 'hold', text, reason: 'incomplete_command' });
+    recordDebug({ uid, session: sessionId, kind: 'hold', text, reason: 'incomplete' });
     scheduleSettle(key, uid, sessionId, INCOMPLETE_EXTRA_MS);
     return;
   }
 
   buffers.delete(key);
-  const result = await processGated(uid, sessionId, text, gate);
+  const timing = { bufferMs: settleAt - entry.firstAt };
+  const gateStart = Date.now();
+  const gate = await gateWithEchoGuard(uid, text, settings, fast);
+  timing.gateMs = Date.now() - gateStart;
+  timing.startedAt = entry.firstAt;
+  const result = await processGated(uid, sessionId, text, gate, timing);
   entry.resolve?.(result);
 }
 
 // The TV's own voice reaches the OMI mic. Drop anything heard while it's
 // talking, or anything that repeats what it just said.
-function gateWithEchoGuard(uid, text, settings) {
+async function gateWithEchoGuard(uid, text, settings, fast) {
   if (boardVoiceService.isEchoOfBoard(text)) return { kind: 'ignore', reason: 'echo' };
-  // While the TV talks, only a deliberate "Hey Board, …" gets through (barge-in);
-  // the TV never says the wake phrase itself, so that can't be its own echo.
-  if (boardVoiceService.isBoardSpeaking() && !findWake(text, wakePhrases(settings))) {
-    return { kind: 'ignore', reason: 'tv_speaking' };
+  // While the TV talks, only a deliberate command gets through (barge-in): the
+  // wake phrase if one is configured, otherwise a recognised fast-path command.
+  if (boardVoiceService.isBoardSpeaking()) {
+    const phrases = wakePhrases(settings);
+    const bargeIn = phrases ? Boolean(findWake(text, phrases)) : Boolean(fast);
+    if (!bargeIn) return { kind: 'ignore', reason: 'tv_speaking' };
   }
-  return gateUtterance(uid, text, settings);
+  return gateUtterance(uid, text, settings, { fast });
 }
 
-async function processGated(uid, sessionId, text, gate) {
+async function processGated(uid, sessionId, text, gate, timing = {}) {
   if (gate.kind === 'ignore') {
     recordDebug({ uid, session: sessionId, kind: 'ignore', text, reason: gate.reason });
+    logger.info(`omi ignore uid=${uid} reason=${gate.reason} text=${text}`);
     return EMPTY;
   }
   if (gate.kind === 'listening') {
@@ -275,14 +330,19 @@ async function processGated(uid, sessionId, text, gate) {
     boardVoiceService.listening(true);
     return EMPTY;
   }
-  return runCommand(uid, sessionId, gate.command);
+  recordDebug({ uid, session: sessionId, kind: 'command', text: gate.command, reason: gate.via });
+  return runCommand(uid, sessionId, gate.command, { ...timing, via: gate.via });
 }
 
 // Entry point for speech that is already a finished utterance (raw-audio path).
 export async function handleSpokenText(uid, text, { sessionId = 'audio' } = {}) {
-  const settings = await settingsService.getSettings();
-  const gate = gateWithEchoGuard(uid, text, settings);
-  return processGated(uid, sessionId, text, gate);
+  const startedAt = Date.now();
+  const [settings, fast] = await Promise.all([
+    settingsService.getSettings(),
+    detectFastIntent(text).catch(() => null),
+  ]);
+  const gate = await gateWithEchoGuard(uid, text, settings, fast);
+  return processGated(uid, sessionId, text, gate, { bufferMs: 0, gateMs: Date.now() - startedAt, startedAt });
 }
 
 const audioChains = new Map();
@@ -330,10 +390,20 @@ async function profileForDevice(uid) {
   return profile;
 }
 
-async function runCommand(uid, sessionId, command) {
+function logTiming(uid, command, timing) {
+  const total = timing.startedAt ? Date.now() - timing.startedAt : null;
+  const ms = (value) => (Number.isFinite(value) ? `${value}ms` : '-');
+  logger.info(
+    `omi timing uid=${uid} via=${timing.via || '-'} buffer=${ms(timing.bufferMs)} gate=${ms(timing.gateMs)} ` +
+      `intent=${ms(timing.intentMs)}${timing.intentSource ? `(${timing.intentSource})` : ''} exec=${ms(timing.execMs)} ` +
+      `emit=${ms(timing.emitMs)} total=${ms(total)} text="${command}"`
+  );
+}
+
+async function runCommand(uid, sessionId, command, timing = {}) {
   closeWindow(uid);
   boardVoiceService.listening(true);
-  logger.info(`omi command uid=${uid} text=${command}`);
+  logger.info(`omi command uid=${uid} via=${timing.via || '-'} text=${command}`);
   try {
     const saysYesNo = YES.test(command) || NO.test(command);
     const [profile, pending] = await Promise.all([
@@ -367,8 +437,10 @@ async function runCommand(uid, sessionId, command) {
         omiUid: uid,
         userName: profile?.full_name || null,
         wakeHandled: true,
+        timing,
       });
     }
+    logTiming(uid, command, timing);
     // Conversation mode: after the TV answers, a follow-up ("show the artwork",
     // "mark it done", "yes") works without saying the wake phrase again.
     const followUp = result.needs_confirmation ? CONFIRM_WINDOW_MS : FOLLOW_UP_MS;

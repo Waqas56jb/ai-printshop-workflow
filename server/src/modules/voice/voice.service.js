@@ -147,7 +147,15 @@ export async function runIntentPipeline({
   omiUid = null,
   userName = null,
   wakeHandled = false,
+  timing = null,
 }) {
+  // Per-step durations for the OMI timing log (intent / exec / emit).
+  const track = (key, promise) => {
+    const started = Date.now();
+    return promise.finally(() => {
+      if (timing) timing[key] = Date.now() - started;
+    });
+  };
   const settings = await settingsService.getSettings();
   const trigger = wakeHandled ? '' : settings.voice_trigger_word || '';
   const autoExecute = settings.voice_auto_execute !== false;
@@ -159,7 +167,8 @@ export async function runIntentPipeline({
   const cleaned = stripTrigger(transcript, trigger) || transcript;
   let parsed;
   try {
-    parsed = await parseIntent(cleaned);
+    parsed = await track('intentMs', parseIntent(cleaned));
+    if (timing) timing.intentSource = parsed.fast ? 'fast' : 'gpt';
   } catch (error) {
     const failed = await saveVoiceCommand({
       transcript: cleaned,
@@ -192,13 +201,34 @@ export async function runIntentPipeline({
         status: 'failed',
         error: 'Not understood',
       }).catch(() => null),
-      notifyBoard({ transcript: cleaned, reply: message, userName }),
+      track('emitMs', notifyBoard({ transcript: cleaned, reply: message, userName })),
     ]);
     if (command) emitVoiceCommand(command);
     return { command, ignored: true, understood: false, message };
   }
 
   const focusedJobId = boardVoiceService.getFocusedJobId();
+
+  // "Mark it done" with no job named and nothing on screen: ask for the job
+  // rather than a yes/no confirmation that could never succeed.
+  if (intent.action === 'move_stage' && !intent.job_ref && !focusedJobId) {
+    const message = "Which job? Say the customer's name.";
+    const [command] = await Promise.all([
+      saveVoiceCommand({
+        transcript: cleaned,
+        omi_uid: omiUid,
+        user_id: userId,
+        intent,
+        action: intent.action,
+        status: 'failed',
+        error: 'No job specified',
+      }).catch(() => null),
+      track('emitMs', notifyBoard({ transcript: cleaned, reply: message, userName })),
+    ]);
+    if (command) emitVoiceCommand(command);
+    return { command, message, needs_job: true };
+  }
+
   const { matches, job } = resolveJobWithFocus(intent, jobs, focusedJobId);
   const threshold = settings.voice_confidence_threshold ?? 0.7;
   const pending = needsConfirmation(intent, matches, autoExecute, threshold);
@@ -219,7 +249,7 @@ export async function runIntentPipeline({
         job_id: job?.id || null,
         error: matches.length > 1 ? 'Multiple matching jobs' : null,
       }),
-      notifyBoard({ transcript: cleaned, reply: message, userName }),
+      track('emitMs', notifyBoard({ transcript: cleaned, reply: message, userName })),
     ]);
     emitVoiceCommand(command);
     return { command, message, needs_confirmation: true };
@@ -227,7 +257,7 @@ export async function runIntentPipeline({
 
   let executed;
   try {
-    executed = await executeIntent(intent, { userId, jobs, focusedJobId });
+    executed = await track('execMs', executeIntent(intent, { userId, jobs, focusedJobId }));
   } catch (error) {
     executed = { error };
   }
@@ -244,12 +274,15 @@ export async function runIntentPipeline({
         status: 'executed',
         job_id: executed.job_id,
       }),
-      notifyBoard({
-        transcript: cleaned,
-        reply: executed.reply,
-        userName,
-        boardAction: executed.board_action,
-      }),
+      track(
+        'emitMs',
+        notifyBoard({
+          transcript: cleaned,
+          reply: executed.reply,
+          userName,
+          boardAction: executed.board_action,
+        })
+      ),
     ]);
     emitVoiceCommand(command);
     return { command, message: executed.reply, result: executed.result };
@@ -267,7 +300,7 @@ export async function runIntentPipeline({
       job_id: job?.id || null,
       error: executed.error.message,
     }),
-    notifyBoard({ transcript: cleaned, reply: message, userName }),
+    track('emitMs', notifyBoard({ transcript: cleaned, reply: message, userName })),
   ]);
   emitVoiceCommand(command);
   return { command, message };

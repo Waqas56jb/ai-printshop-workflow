@@ -57,7 +57,7 @@ function speakOnce(seq, play) {
 export function useBoardVoice(
   enabled,
   { key = '', label = '', preview = false } = {},
-  { onNext, onPrev, onZoom, emitRef } = {}
+  { onNext, onPrev, onZoom, onRefresh, emitRef } = {}
 ) {
   const [view, setView] = useState('board');
   const [focusedJob, setFocusedJob] = useState(null);
@@ -83,6 +83,8 @@ export function useBoardVoice(
   onNextRef.current = onNext;
   onPrevRef.current = onPrev;
   onZoomRef.current = onZoom;
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
 
   const backToBoard = useCallback(() => {
     setView('board');
@@ -182,6 +184,10 @@ export function useBoardVoice(
         break;
       case 'board:ticker':
         setTicker(payload);
+        break;
+      case 'board:refresh':
+        // Board data changed; a polling-only TV reloads its columns right away.
+        onRefreshRef.current?.();
         break;
       case 'board:listening':
         clearTimeout(listeningTimer.current);

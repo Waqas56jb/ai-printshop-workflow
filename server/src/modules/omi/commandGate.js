@@ -1,17 +1,9 @@
 // Decides which overheard speech is actually a command. OMI listens all day, so
-// without a wake phrase every sentence of normal shop conversation ("she's coming
-// to pick this up") gets parsed and executed. Only speech that follows the wake
-// phrase — or arrives inside the short listening window it opens — gets through.
-
-export const DEFAULT_WAKE_PHRASES = [
-  'hey board',
-  'hi board',
-  'ok board',
-  'okay board',
-  'hey bored',
-  'ok bored',
-  'okay bored',
-];
+// ordinary shop conversation ("she's coming to pick this up") must never run.
+// Default (no wake word): a fast-path match or command shape is a command;
+// anything else goes through a cheap GPT COMMAND/CHAT check. If an admin sets
+// `voice_wake_word`, the old wake-phrase rule applies instead.
+import { classifyCommand, detectFastIntent, looksLikeCommand } from '../voice/intent.service.js';
 
 const LISTEN_WINDOW_MS = 10_000;
 const FILLER = /^(uh+|um+|er+|ah+|hmm+|so|okay|ok|yeah|and)$/i;
@@ -21,12 +13,13 @@ function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// The admin-configured wake phrases, or null when wake words are off (default).
 export function wakePhrases(settings = {}) {
-  const configured = String(settings.voice_trigger_word || '')
+  const configured = String(settings.voice_wake_word || '')
     .split(',')
     .map((phrase) => phrase.trim().toLowerCase())
     .filter(Boolean);
-  return configured.length ? configured : DEFAULT_WAKE_PHRASES;
+  return configured.length ? configured : null;
 }
 
 function phrasePattern(phrase) {
@@ -35,7 +28,7 @@ function phrasePattern(phrase) {
 }
 
 // Speech-to-text spellings of "hey board" seen in practice ("Hey, Bored.", "Hay board",
-// "Okay Ward"). Only used with the default wake phrase, not a custom one.
+// "Okay Ward"). Only used when the configured wake phrase is "hey board".
 const FUZZY_WAKE = /(?<![\p{L}\p{N}])(?:hey|hay|hi|ok|okay)[\s,.!-]*(?:board|boards|bored|bord|bard|ward)(?![\p{L}\p{N}])/giu;
 // "Board, show me…" at the very start of an utterance, but only when a command verb
 // follows — so "board" in normal shop talk ("foam board is ready") doesn't trigger.
@@ -50,7 +43,7 @@ export function findWake(text, phrases) {
       end = Math.max(end, match.index + match[0].length);
     }
   }
-  if (phrases === DEFAULT_WAKE_PHRASES) {
+  if (phrases.includes('hey board')) {
     for (const match of text.matchAll(FUZZY_WAKE)) {
       end = Math.max(end, match.index + match[0].length);
     }
@@ -100,29 +93,43 @@ function isOnlyFiller(text) {
 }
 
 // kind: 'ignore' (not for us), 'listening' (wake phrase only, command coming next),
-// or 'command' (text to run). `woke` is true when this text contained the wake phrase.
-export function gateUtterance(uid, text, settings = {}) {
+// or 'command' (text to run). `via` says what made it a command. `fast` may be
+// passed in when the caller already ran the fast-path match.
+export async function gateUtterance(uid, text, settings = {}, { fast } = {}) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
   if (!clean) return { kind: 'ignore', reason: 'empty' };
-  if (!isEnglishLike(clean)) return { kind: 'ignore', reason: 'non_english' };
+  // OMI sometimes hears speech as Chinese/Korean/Arabic text — its own
+  // mis-transcription, never a command.
+  if (!isEnglishLike(clean)) return { kind: 'ignore', reason: 'omi_mistranscription' };
 
-  if (settings.omi_require_wake_word === false) {
-    return { kind: 'command', command: clean, woke: false };
-  }
-
-  const hit = findWake(clean, wakePhrases(settings));
-  if (hit) {
-    if (isOnlyFiller(hit.command)) {
-      openWindow(uid);
-      return { kind: 'listening', woke: true };
+  const phrases = wakePhrases(settings);
+  if (phrases) {
+    const hit = findWake(clean, phrases);
+    if (hit) {
+      if (isOnlyFiller(hit.command)) {
+        openWindow(uid);
+        return { kind: 'listening', via: 'wake' };
+      }
+      return { kind: 'command', command: hit.command, via: 'wake' };
     }
-    return { kind: 'command', command: hit.command, woke: true };
+    if (isWindowOpen(uid) && !isOnlyFiller(clean)) return { kind: 'command', command: clean, via: 'follow_up' };
+    return { kind: 'ignore', reason: 'no_wake' };
   }
 
-  if (isWindowOpen(uid)) {
-    if (isOnlyFiller(clean)) return { kind: 'listening', woke: false };
-    return { kind: 'command', command: clean, woke: false };
+  // Right after the TV answered, short replies ("the hoodie", "yes", "second one")
+  // are answers. Longer speech still goes through detection, so people chatting
+  // just after a command don't get "Sorry, I didn't catch that."
+  if (isWindowOpen(uid) && wordCount(clean) <= 3) {
+    if (isOnlyFiller(clean)) return { kind: 'ignore', reason: 'filler' };
+    return { kind: 'command', command: clean, via: 'follow_up' };
   }
 
-  return { kind: 'ignore', reason: 'no_wake' };
+  const quick = fast === undefined ? await detectFastIntent(clean) : fast;
+  if (quick) return { kind: 'command', command: clean, via: 'fast', fast: quick };
+  if (looksLikeCommand(clean)) return { kind: 'command', command: clean, via: 'pattern' };
+  if (wordCount(clean) < 2 || isOnlyFiller(clean)) return { kind: 'ignore', reason: 'chit_chat' };
+
+  const verdict = await classifyCommand(clean);
+  if (verdict === 'COMMAND') return { kind: 'command', command: clean, via: 'classifier' };
+  return { kind: 'ignore', reason: 'chit_chat' };
 }

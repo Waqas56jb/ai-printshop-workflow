@@ -101,7 +101,22 @@ export function fastIntent(transcript, { jobs = [], stages = [] } = {}) {
     return intent('move_stage', { stage: 'next' });
   }
 
-  let match = t.match(/^(?:move|send|put|take) (.+?) (?:to|into|in) (?:the )?(.+?)$/);
+  if (/^how many (?:active |open |pending )?(?:jobs|orders)(?: (?:are there|do we have|are active|are pending))?$|^(?:show |list )?(?:all )?(?:pending|active|open) (?:jobs|orders)$/.test(t)) {
+    return intent('pending_jobs');
+  }
+
+  // A note for the job already on screen ("add a note: customer wants blue").
+  let match = t.match(/^(?:add|put|make|leave) (?:a )?note(?: that| saying)?[ :,-]+(.{3,})$/);
+  if (match && !/^(?:to|on|for) /.test(match[1])) {
+    return intent('add_note', { note: match[1].trim() });
+  }
+
+  match = t.match(/^(?:what'?s|what is|where'?s|where is|check)(?: the)? (?:status (?:of|for) )?(.+?)(?:'s)?(?: (?:job|order))?(?: status)?$/);
+  if (match && /status|where/.test(t) && singleJob(match[1], jobs)) {
+    return intent('job_status', { job_ref: match[1] });
+  }
+
+  match = t.match(/^(?:move|send|put|take) (.+?) (?:to|into|in) (?:the )?(.+?)$/);
   if (match) {
     const stage = matchStage(match[2], stages);
     if (!stage) return null;
@@ -117,7 +132,7 @@ export function fastIntent(transcript, { jobs = [], stages = [] } = {}) {
   }
 
   match = t.match(
-    /^(?:pull up|bring up|show(?: me)?|open(?: up)?|find|display|go to|look up)(?: the)? (?:job (?:for|of) |order (?:for|of) )?(.+?)(?:'s)?(?: (?:job|order|card|jobs|orders))?$/
+    /^(?:pull up|bring up|show(?: me)?|open(?: up)?|find|display|go to|look up|let me see|check|get)(?: the)? (?:job (?:for|of) |order (?:for|of) )?(.+?)(?:'s)?(?: (?:job|order|card|jobs|orders))?$/
   );
   if (match) {
     const ref = match[1].trim();
@@ -129,4 +144,20 @@ export function fastIntent(transcript, { jobs = [], stages = [] } = {}) {
   }
 
   return null;
+}
+
+// Phrasings that are unmistakably commands but carry details only GPT can pull
+// out (customer, quantity, product, assignee, a note for a named job).
+const COMMAND_SHAPES = [
+  /^(?:create|make|start|open|add|log) (?:a )?(?:new )?(?:job|order)\b/,
+  /^new (?:job|order)\b/,
+  /^(?:add|put|make|leave) (?:a )?note\b/,
+  /^assign (?:it|this|that|the job|.+? job|.+? order) to\b/,
+  /^(?:what'?s|what is) (?:the )?status\b/,
+  /^(?:mark|move|send|put|push) .+ (?:as |to |into )/,
+];
+
+export function looksLikeCommand(transcript) {
+  const t = strip(transcript);
+  return COMMAND_SHAPES.some((pattern) => pattern.test(t));
 }

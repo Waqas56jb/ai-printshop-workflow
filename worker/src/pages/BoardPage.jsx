@@ -32,7 +32,7 @@ function msUntilHour(hour) {
 export function BoardPage({ boardKey, preview = false, label = '' }) {
   const now = useClock();
   const prevJobs = useRef(new Map());
-  const { data, offline, invalid, updatedAt } = useBoard(boardKey, { preview, label });
+  const { data, offline, invalid, updatedAt, refetch } = useBoard(boardKey, { preview, label });
   const boardReady = !invalid && Boolean(data || offline);
 
   const [artworkIndex, setArtworkIndex] = useState(0);
@@ -64,7 +64,7 @@ export function BoardPage({ boardKey, preview = false, label = '' }) {
   const voice = useBoardVoice(
     boardReady,
     { key: boardKey, label, preview },
-    { onNext, onPrev, onZoom, emitRef: voiceEmitRef }
+    { onNext, onPrev, onZoom, onRefresh: refetch, emitRef: voiceEmitRef }
   );
 
   useEffect(() => {

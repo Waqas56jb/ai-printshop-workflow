@@ -122,11 +122,11 @@ export function applyRelayedBoardEvent(event, payload) {
   return true;
 }
 
+// Goes through the event log too, so a TV that can only poll
+// /api/board/events also learns the board changed.
 function refreshBoard() {
   invalidateBoardDisplayCache();
-  const io = getIO();
-  if (!io) return;
-  io.to('board').emit('board:refresh');
+  broadcastBoard('board:refresh', {});
 }
 
 export function emitJobCreated(job) {
