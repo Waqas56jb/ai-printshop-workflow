@@ -1,11 +1,13 @@
 # Print Shop — panel
 
 The one panel for the shop (admin and staff accounts sign in here with the same permissions).
-Big type, big buttons, plain words. Four tabs:
+Design: `design/admin-v2.html`. Left sidebar, big type, plain words. Four sections:
 
-- **Jobs** (`/`) — New / Working / Ready / Done. A view over the real stages: New = default stage,
-  Ready = the stage named "Ready", Done = the last 20 finished jobs, Working = everything in between.
-- **Files** (`/files`), **Customers** (`/customers`), **Voice** (`/voice`) — next phase.
+- **Jobs** (`/`) — one column per real stage (same order and colors as the TV) plus Done (last 20).
+  Each card has one button: "→ next stage", or "Done ✓" on the last stage. Admins get "Edit stages".
+- **Files** (`/files`) — customer folders → job folders → files. Files uploaded into a job folder are
+  that job's files: they show on the job card and the TV right away.
+- **Customers** (`/customers`), **Voice** (`/voice`) — next phase.
 
 The TV board lives in `/worker`; the API in `/server`.
 

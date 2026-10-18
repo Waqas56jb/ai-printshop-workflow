@@ -3,7 +3,7 @@ import { useEffect, useId, useRef } from 'react';
 // Open dialogs, newest last — Escape only closes the one on top.
 const stack = [];
 
-export function Modal({ title, onClose, wide = false, children }) {
+export function Modal({ title, onClose, wide = false, full = false, children }) {
   const id = useId();
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -32,7 +32,7 @@ export function Modal({ title, onClose, wide = false, children }) {
       }}
     >
       <div
-        className={`dialog${wide ? ' wide' : ''}`}
+        className={`dialog${wide ? ' wide' : ''}${full ? ' full' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : undefined}

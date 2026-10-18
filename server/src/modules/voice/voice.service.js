@@ -4,7 +4,6 @@ import { emitVoiceCommand } from '../../sockets/events.js';
 import * as settingsService from '../settings/settings.service.js';
 import * as jobsService from '../jobs/jobs.service.js';
 import { executeIntent, needsConfirmation, parseIntent, resolveJob, resolveJobWithFocus } from './intent.service.js';
-import * as stagesService from '../stages/stages.service.js';
 import * as boardVoiceService from './boardVoice.service.js';
 import { logger } from '../../utils/logger.js';
 
@@ -98,10 +97,7 @@ async function enrichPending(items) {
   const pending = (items || []).some((row) => row.status === 'pending_confirmation');
   if (!pending) return items;
 
-  const [jobs, stages] = await Promise.all([
-    jobsService.listActiveJobSummaries(),
-    stagesService.listStages(),
-  ]);
+  const jobs = await jobsService.listActiveJobSummaries();
 
   return items.map((row) => {
     if (row.status !== 'pending_confirmation') return row;
@@ -112,21 +108,6 @@ async function enrichPending(items) {
       kind = 'ambiguous';
       const who = row.user_name || 'they';
       question = `Which job did ${who} mean?`;
-    } else if (row.intent?.action === 'move_stage' && matches.length === 1) {
-      const job = matches[0];
-      const targetName = row.intent?.stage;
-      const target = stages.find(
-        (stage) =>
-          stage.name.toLowerCase() === String(targetName || '').toLowerCase() ||
-          stage.slug === String(targetName || '').toLowerCase() ||
-          (stage.aliases || []).some((alias) => alias.toLowerCase() === String(targetName || '').toLowerCase())
-      );
-      const fromIdx = stages.findIndex((stage) => stage.id === job.stage_id);
-      const toIdx = target ? stages.findIndex((stage) => stage.id === target.id) : -1;
-      if (fromIdx >= 0 && toIdx >= 0 && Math.abs(toIdx - fromIdx) > 1) {
-        kind = 'skip';
-        question = `${job.job_number} is in ${stages[fromIdx].name} — skip straight to ${stages[toIdx].name}?`;
-      }
     }
     return {
       ...row,

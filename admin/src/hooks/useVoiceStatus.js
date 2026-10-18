@@ -36,5 +36,5 @@ export function useVoiceStatus(pollMs = 30_000) {
   }, [pollMs]);
 
   const heardAt = lastHeard(status);
-  return { status, heardAt, on: Boolean(heardAt && now - heardAt < ON_WINDOW_MS) };
+  return { status, heardAt, now, on: Boolean(heardAt && now - heardAt < ON_WINDOW_MS) };
 }

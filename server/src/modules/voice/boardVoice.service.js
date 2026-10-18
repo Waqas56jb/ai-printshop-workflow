@@ -168,7 +168,7 @@ const ORDINALS = [
   /\b(fourth|4th|four)\b/,
 ];
 
-export function confirmCandidates(candidates, prompt) {
+export function confirmCandidates(candidates, prompt, then = null) {
   const payload = {
     candidates: (candidates || []).map((job) => ({
       job_id: job.id,
@@ -178,7 +178,7 @@ export function confirmCandidates(candidates, prompt) {
     })),
     prompt,
   };
-  pendingChoice = { candidates: payload.candidates, at: Date.now() };
+  pendingChoice = { candidates: payload.candidates, then, at: Date.now() };
   emitBoardConfirm(payload);
   logger.info(`board:confirm ${JSON.stringify(payload)}`);
 }
@@ -188,7 +188,8 @@ export function resolvePendingChoice(text) {
   const heard = tokens(text);
   if (!heard.length) return null;
   const spoken = heard.join(' ');
-  const { candidates } = pendingChoice;
+  const { candidates, then } = pendingChoice;
+  const pick = (candidate) => (then ? { ...candidate, then } : candidate);
 
   // Words that only name the shared customer ("Sarah Khan") don't tell candidates apart.
   const shared = new Set(
@@ -204,10 +205,10 @@ export function resolvePendingChoice(text) {
     return { candidate, score: score + (hitsNumber ? 5 : 0) };
   });
   scored.sort((a, b) => b.score - a.score);
-  if (scored[0]?.score > 0 && scored[0].score > (scored[1]?.score ?? 0)) return scored[0].candidate;
+  if (scored[0]?.score > 0 && scored[0].score > (scored[1]?.score ?? 0)) return pick(scored[0].candidate);
 
   const ordinal = ORDINALS.findIndex((pattern) => pattern.test(spoken));
-  if (ordinal >= 0 && candidates[ordinal]) return candidates[ordinal];
+  if (ordinal >= 0 && candidates[ordinal]) return pick(candidates[ordinal]);
   return null;
 }
 
@@ -260,7 +261,7 @@ export async function dispatchBoardAction(boardAction) {
       navigate(boardAction.action, { filter: boardAction.filter });
       break;
     case 'confirm':
-      confirmCandidates(boardAction.candidates, boardAction.prompt);
+      confirmCandidates(boardAction.candidates, boardAction.prompt, boardAction.then || null);
       break;
     default:
       break;

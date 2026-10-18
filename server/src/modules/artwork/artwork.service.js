@@ -100,7 +100,8 @@ export async function deleteArtwork(id, actor) {
   if (!artwork) {
     throw new ApiError(404, 'Artwork not found');
   }
-  if (actor?.role !== 'admin' && artwork.uploaded_by !== actor?.id) {
+  // Admin and staff share one panel with the same permissions.
+  if (!['admin', 'staff'].includes(actor?.role) && artwork.uploaded_by !== actor?.id) {
     throw new ApiError(403, 'You can only delete artwork you uploaded');
   }
 

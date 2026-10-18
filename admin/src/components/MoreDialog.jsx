@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth.js';
 import { getOmiWebhookUrl } from '../services/dashboard.service.js';
 import { getSettings } from '../services/settings.service.js';
 import { workerBoardUrl } from '../utils/boardUrl.js';
@@ -38,9 +36,8 @@ function CopyRow({ label, value }) {
   );
 }
 
+// The TV board link and the OMI webhook link, ready to copy.
 export function MoreDialog({ onClose }) {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
   const [boardLink, setBoardLink] = useState('');
   const [omiLink, setOmiLink] = useState('');
 
@@ -56,20 +53,10 @@ export function MoreDialog({ onClose }) {
       .catch(() => setOmiLink('Could not load the OMI link'));
   }, []);
 
-  async function signOut() {
-    await logout();
-    navigate('/login', { replace: true });
-  }
-
   return (
-    <Modal title="More" onClose={onClose}>
+    <Modal title="TV and OMI links" onClose={onClose}>
       <CopyRow label="TV board link" value={boardLink} />
       <CopyRow label="OMI webhook link" value={omiLink} />
-      <div className="dialog-actions">
-        <button type="button" className="btn btn-danger" onClick={signOut}>
-          Sign out
-        </button>
-      </div>
     </Modal>
   );
 }

@@ -86,6 +86,10 @@ function includeJobOnBoard(job, stage, hideHours, art) {
   return new Date(job.completed_at).getTime() >= Date.now() - hideHours * 3600000;
 }
 
+function isImageRow(row) {
+  return /^image\//i.test(row.file_type || '') || /\.(png|jpe?g|gif|webp|svg)$/i.test(row.file_name || '');
+}
+
 function mapArtwork(row) {
   return {
     id: row.id,
@@ -116,6 +120,7 @@ function mapBoardJob(job, stage, art = { count: 0, approved: false, files: [] })
     assigned_initials: initials(job.assignee?.full_name),
     artworks_count: art.count || 0,
     has_approved_artwork: art.approved || false,
+    thumb_url: art.files?.[0]?.file_url || null,
     updated_at: job.updated_at,
   };
 }
@@ -136,8 +141,8 @@ export async function getBoard() {
     'Failed to load board jobs'
   );
 
+  // Every stage is a column — the panel's Jobs tab shows the same set.
   return (stages || [])
-    .filter((stage) => stage.show_on_board !== false)
     .map((stage) => ({
       ...stage,
       jobs: (jobs || [])
@@ -233,14 +238,14 @@ export async function getBoardDisplay() {
     const current = acc.get(row.job_id) || { count: 0, approved: false, files: [] };
     current.count += 1;
     if (row.is_approved) current.approved = true;
-    // Keep at most one thumbnail per job for the TV board
-    if (current.files.length < 1) current.files.push(mapArtwork(row));
+    // Keep at most one picture per job as the TV card thumbnail
+    if (current.files.length < 1 && isImageRow(row)) current.files.push(mapArtwork(row));
     acc.set(row.job_id, current);
     return acc;
   }, new Map());
 
-  const visibleStages = (stages || []).filter((stage) => stage.show_on_board !== false);
-  const columns = visibleStages.map((stage) => {
+  // Every stage is a column, in the same order as the panel's Jobs tab.
+  const columns = (stages || []).map((stage) => {
     const columnJobs = jobs
       .filter((job) => job.stage_id === stage.id && includeJobOnBoard(job, stage, hideHours, artByJob.get(job.id)))
       .map((job) => mapBoardJob(job, stage, artByJob.get(job.id)))

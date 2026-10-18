@@ -16,12 +16,17 @@ const allowedMimes = new Set([
 
 const allowedExt = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.pdf', '.ai']);
 
+// Job files (shown on the job card and the TV): pictures, PDF, AI, SVG.
+export function isArtworkFile(file) {
+  const ext = path.extname(file?.originalname || '').toLowerCase();
+  return allowedMimes.has(file?.mimetype) || allowedExt.has(ext);
+}
+
 export const artworkUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    if (allowedMimes.has(file.mimetype) || allowedExt.has(ext)) {
+    if (isArtworkFile(file)) {
       return cb(null, true);
     }
     cb(new ApiError(400, 'Unsupported file type. Use images, PDF, AI, or SVG.'));

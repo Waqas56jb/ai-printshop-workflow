@@ -1,13 +1,13 @@
 import { Outlet } from 'react-router-dom';
-import { TopBar } from '../components/TopBar.jsx';
+import { Sidebar } from '../components/Sidebar.jsx';
 
 export function Shell() {
   return (
-    <>
-      <TopBar />
-      <main>
+    <div className="app">
+      <Sidebar />
+      <div className="main">
         <Outlet />
-      </main>
-    </>
+      </div>
+    </div>
   );
 }

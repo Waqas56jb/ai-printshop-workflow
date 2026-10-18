@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listJobs, listStages } from '../services/jobs.service.js';
 import { readCache, writeCache } from '../utils/pageCache.js';
+import { sortStages } from '../utils/plain.js';
 import { useSocket } from './useSocket.js';
 
 const CACHE_KEY = 'simple-jobs';
@@ -20,7 +21,7 @@ async function listAllActive() {
 // `version` bumps on every live change so an open job sheet can reload too.
 export function useJobBoard() {
   const cached = readCache(CACHE_KEY, 120_000);
-  const [stages, setStages] = useState(cached?.stages || []);
+  const [stages, setStages] = useState(() => sortStages(cached?.stages || []));
   const [active, setActive] = useState(cached?.active || []);
   const [done, setDone] = useState(cached?.done || []);
   const [loading, setLoading] = useState(!cached);
@@ -37,7 +38,7 @@ export function useJobBoard() {
       ]);
       const nextDone = finished.items || [];
       writeCache(CACHE_KEY, { stages: nextStages, active: nextActive, done: nextDone });
-      setStages(nextStages || []);
+      setStages(sortStages(nextStages || []));
       setActive(nextActive);
       setDone(nextDone);
       setError(null);

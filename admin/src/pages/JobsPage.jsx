@@ -1,18 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { Icon } from '../components/Icon.jsx';
+import { PageHeader } from '../components/PageHeader.jsx';
 import { JobCard } from '../components/jobs/JobCard.jsx';
+import { NewJobModal } from '../components/jobs/NewJobModal.jsx';
 import { JobSheet } from '../components/jobs/JobSheet.jsx';
+import { StagesEditor } from '../components/jobs/StagesEditor.jsx';
+import { useAuth } from '../hooks/useAuth.js';
 import { useJobBoard } from '../hooks/useJobBoard.js';
 import { completeJob, moveJobStage } from '../services/jobs.service.js';
-import {
-  COLUMNS,
-  columnOf,
-  errorWords,
-  pickedUpToast,
-  readyToast,
-  stageView,
-  startedToast,
-} from '../utils/plain.js';
+import { DONE, columnKey, doneToast, errorWords, isLastStage, movedToast, nextStage } from '../utils/plain.js';
 
 function matches(job, query) {
   if (!query) return true;
@@ -24,40 +21,68 @@ function matches(job, query) {
 }
 
 export default function JobsPage() {
+  const { profile } = useAuth();
   const { stages, jobs, loading, error, version, refetch } = useJobBoard();
   const [search, setSearch] = useState('');
   const [openId, setOpenId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const scroller = useRef(null);
+  const [canScroll, setCanScroll] = useState({ left: false, right: false });
 
-  const view = useMemo(() => stageView(stages), [stages]);
-
-  const grouped = useMemo(() => {
-    const out = { new: [], working: [], ready: [], done: [] };
+  const columns = useMemo(() => {
+    const byKey = new Map(stages.map((stage) => [stage.id, []]));
+    byKey.set(DONE, []);
     const query = search.trim();
     for (const job of jobs) {
       if (!matches(job, query)) continue;
-      out[columnOf(job, view)].push(job);
+      byKey.get(columnKey(job))?.push(job);
     }
-    // Most urgent first; jobs without a date go last.
+    // Most urgent first; jobs without a date go last. Done keeps newest first.
     const byDue = (a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999'));
-    out.new.sort(byDue);
-    out.working.sort(byDue);
-    out.ready.sort(byDue);
-    return out;
-  }, [jobs, view, search]);
+    stages.forEach((stage) => byKey.get(stage.id).sort(byDue));
+    return [
+      ...stages.map((stage) => ({ key: stage.id, label: stage.name, color: stage.color, stage, jobs: byKey.get(stage.id) })),
+      { key: DONE, label: 'Done', color: '#161a1f', stage: null, jobs: byKey.get(DONE) },
+    ];
+  }, [jobs, stages, search]);
 
-  async function onAction(job, column) {
+  const updateArrows = useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    setCanScroll({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
+
+  useEffect(() => {
+    updateArrows();
+    window.addEventListener('resize', updateArrows);
+    return () => window.removeEventListener('resize', updateArrows);
+  }, [updateArrows, columns.length, loading]);
+
+  function scrollBy(direction) {
+    const el = scroller.current;
+    if (el) el.scrollBy({ left: direction * Math.max(320, el.clientWidth * 0.8), behavior: 'smooth' });
+  }
+
+  function actionFor(job) {
+    if (job.status === 'completed') return null;
+    if (isLastStage(stages, job.stage_id)) return { label: 'Done ✓', done: true };
+    const next = nextStage(stages, job.stage_id);
+    return next ? { label: `→ ${next.name}`, next } : null;
+  }
+
+  async function onAction(job) {
+    const action = actionFor(job);
+    if (!action) return;
     setBusyId(job.id);
     try {
-      if (column === 'new') {
-        await moveJobStage(job.id, view.start.id);
-        toast(startedToast(job));
-      } else if (column === 'working') {
-        await moveJobStage(job.id, view.ready.id);
-        toast(readyToast(job));
-      } else if (column === 'ready') {
+      if (action.done) {
         await completeJob(job.id);
-        toast(pickedUpToast(job));
+        toast(doneToast(job));
+      } else {
+        const moved = await moveJobStage(job.id, action.next.id);
+        toast(movedToast(job, action.next, moved?.status === 'completed'));
       }
       await refetch();
     } catch (err) {
@@ -68,54 +93,82 @@ export default function JobsPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1 className="page-title">Jobs</h1>
-        <input
-          className="search"
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search a name, job or customer"
-          aria-label="Search jobs"
-        />
-      </div>
+    <>
+      <PageHeader title="Jobs">
+        <label className="search">
+          <Icon name="search" />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Find a job or customer"
+            aria-label="Find a job or customer"
+          />
+        </label>
+        <div className="spacer" />
+        {profile?.role === 'admin' ? (
+          <button type="button" className="pill-btn" onClick={() => setEditing(true)}>
+            <Icon name="edit" />
+            Edit stages
+          </button>
+        ) : null}
+        <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+          + New job
+        </button>
+      </PageHeader>
 
-      {error ? <div className="banner-error">Could not load jobs: {error}</div> : null}
+      <main className="content">
+        {error ? <div className="banner-error">Could not load jobs: {error}</div> : null}
 
-      {loading && !jobs.length ? (
-        <div className="loading">Loading jobs…</div>
-      ) : (
-        <div className="cols">
-          {COLUMNS.map((col) => (
-            <section key={col.key} className={`col col-${col.key}`}>
-              <div className="col-head">
-                <i />
-                <h2>{col.label}</h2>
-                <span className="count">{grouped[col.key].length}</span>
-              </div>
-              <div className="cards">
-                {grouped[col.key].length ? (
-                  grouped[col.key].map((job) => (
-                    <JobCard
-                      key={job.id}
-                      job={job}
-                      column={col.key}
-                      busy={busyId === job.id}
-                      onOpen={(item) => setOpenId(item.id)}
-                      onAction={onAction}
-                    />
-                  ))
-                ) : (
-                  <div className="col-empty">{search ? 'No match' : 'Nothing here'}</div>
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+        {loading && !jobs.length ? (
+          <div className="loading">Loading jobs…</div>
+        ) : (
+          <div className="cols-wrap">
+            {canScroll.left ? (
+              <button type="button" className="scroll-arrow left" onClick={() => scrollBy(-1)} aria-label="Scroll left">
+                ‹
+              </button>
+            ) : null}
+            <div className="cols" ref={scroller} onScroll={updateArrows}>
+              {columns.map((col) => (
+                <section key={col.key} className={`col${col.key === DONE ? ' col-done' : ''}`} style={{ '--stage': col.color }}>
+                  <div className="col-head">
+                    <h2>{col.label}</h2>
+                    <span className="count num">{col.jobs.length}</span>
+                  </div>
+                  <div className="cards">
+                    {col.jobs.length ? (
+                      col.jobs.map((job) => (
+                        <JobCard
+                          key={job.id}
+                          job={job}
+                          action={actionFor(job)}
+                          busy={busyId === job.id}
+                          onOpen={(item) => setOpenId(item.id)}
+                          onAction={onAction}
+                        />
+                      ))
+                    ) : (
+                      <div className="col-empty">{search ? 'No match' : 'Nothing here'}</div>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+            {canScroll.right ? (
+              <button type="button" className="scroll-arrow right" onClick={() => scrollBy(1)} aria-label="Scroll right">
+                ›
+              </button>
+            ) : null}
+          </div>
+        )}
 
-      {openId ? <JobSheet jobId={openId} view={view} version={version} onClose={() => setOpenId(null)} /> : null}
-    </div>
+        {openId ? (
+          <JobSheet jobId={openId} stages={stages} version={version} onClose={() => setOpenId(null)} />
+        ) : null}
+        {editing ? <StagesEditor stages={stages} jobs={jobs} onChanged={refetch} onClose={() => setEditing(false)} /> : null}
+        {creating ? <NewJobModal onClose={() => setCreating(false)} /> : null}
+      </main>
+    </>
   );
 }

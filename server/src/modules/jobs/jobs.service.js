@@ -462,14 +462,19 @@ export function matchJobsByRef(jobRef, summaries) {
   if (exactNumber.length === 1) return exactNumber;
 
   const tokens = q.split(' ').filter((part) => part.length > 1);
-  return summaries.filter((job) => {
+  const hayOf = (job) =>
+    `${normalizeRef(job.job_number)} ${normalizeRef(job.title)} ${normalizeRef(job.customer_name)}`;
+  const loose = summaries.filter((job) => {
     const number = normalizeRef(job.job_number);
     const title = normalizeRef(job.title);
     const customer = normalizeRef(job.customer_name);
-    const hay = `${number} ${title} ${customer}`;
+    const hay = hayOf(job);
     if (hay.includes(q) || q.includes(number) || (title && q.includes(title)) || (customer && q.includes(customer))) {
       return true;
     }
     return tokens.length > 0 && tokens.every((token) => hay.includes(token));
   });
+  // "sarah's hoodie": jobs matching every word win over jobs that only share the title.
+  const strict = tokens.length > 1 ? loose.filter((job) => tokens.every((token) => hayOf(job).includes(token))) : [];
+  return strict.length ? strict : loose;
 }

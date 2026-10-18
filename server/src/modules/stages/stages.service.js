@@ -2,6 +2,31 @@ import { supabase, unwrap } from '../../config/supabase.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { emitBoardRefresh } from '../../sockets/events.js';
 
+// Stage edits change what the TV shows and what voice can match, right away.
+async function stagesChanged() {
+  await normalizeEnds();
+  emitBoardRefresh();
+  // Lazy import: the voice module imports this one.
+  import('../voice/intent.service.js')
+    .then((module) => module.invalidateIntentContext())
+    .catch(() => {});
+}
+
+// Plain rules for the owner: the first stage is where new jobs start, the last
+// stage completes the job. Kept in sync after every edit.
+async function normalizeEnds() {
+  const stages = await listStages();
+  const lastIndex = stages.length - 1;
+  const updates = stages
+    .map((stage, index) => ({ stage, is_default: index === 0, is_final: index === lastIndex }))
+    .filter(({ stage, is_default, is_final }) => stage.is_default !== is_default || stage.is_final !== is_final)
+    .map(({ stage, is_default, is_final }) =>
+      supabase.from('stages').update({ is_default, is_final }).eq('id', stage.id)
+    );
+  const results = await Promise.all(updates);
+  results.forEach((result) => unwrap(result, 'Failed to update first/last stage'));
+}
+
 function slugify(value) {
   return value
     .toLowerCase()
@@ -81,8 +106,12 @@ export async function findStageByName(name) {
 
 export async function createStage(payload) {
   const existing = await listStages();
+  const name = payload.name.trim();
+  if (existing.some((stage) => stage.name.trim().toLowerCase() === name.toLowerCase())) {
+    throw new ApiError(409, `There is already a stage called ${name}`);
+  }
   const position = payload.position ?? existing.length + 1;
-  const slug = payload.slug || slugify(payload.name);
+  const slug = payload.slug || slugify(name);
   await clearDefaultIfNeeded(payload.is_default);
   await clearFinalIfNeeded(payload.is_final);
 
@@ -90,28 +119,42 @@ export async function createStage(payload) {
     await supabase
       .from('stages')
       .insert({
-        name: payload.name,
+        name,
         slug,
         color: payload.color || '#6366f1',
         position,
         is_default: Boolean(payload.is_default),
         is_final: Boolean(payload.is_final),
-        aliases: payload.aliases || [slugify(payload.name)],
+        aliases: payload.aliases || [name.toLowerCase()],
         show_on_board: payload.show_on_board !== false,
       })
       .select('*')
       .single(),
     'Failed to create stage'
   );
-  emitBoardRefresh();
-  return created;
+  if (payload.position == null && existing.length) {
+    // A new stage goes just before the last one, so the "done" stage stays last.
+    const ids = existing.map((stage) => stage.id);
+    ids.splice(ids.length - 1, 0, created.id);
+    await reorderStages(ids);
+  } else {
+    await stagesChanged();
+  }
+  return getStage(created.id);
 }
 
 export async function updateStage(id, payload) {
   await getStage(id);
   const next = { ...payload };
-  if (payload.name && !payload.slug) {
-    next.slug = slugify(payload.name);
+  if (payload.name) {
+    next.name = payload.name.trim();
+    const others = (await listStages()).filter((stage) => stage.id !== id);
+    if (others.some((stage) => stage.name.trim().toLowerCase() === next.name.toLowerCase())) {
+      throw new ApiError(409, `There is already a stage called ${next.name}`);
+    }
+  }
+  if (next.name && !payload.slug) {
+    next.slug = slugify(next.name);
   }
   await clearDefaultIfNeeded(payload.is_default, id);
   await clearFinalIfNeeded(payload.is_final, id);
@@ -119,31 +162,39 @@ export async function updateStage(id, payload) {
     await supabase.from('stages').update(next).eq('id', id).select('*').single(),
     'Failed to update stage'
   );
-  emitBoardRefresh();
+  await stagesChanged();
   return updated;
 }
 
 export async function deleteStage(id) {
-  await getStage(id);
+  const stage = await getStage(id);
   const active = unwrap(
     await supabase.from('jobs').select('id').eq('stage_id', id).eq('status', 'active'),
     'Failed to check stage jobs'
   );
   if (active?.length) {
-    throw new ApiError(
-      409,
-      `This stage has ${active.length} active job${active.length === 1 ? '' : 's'} and cannot be deleted`
-    );
+    const n = active.length;
+    throw new ApiError(409, `Move the ${n} job${n === 1 ? '' : 's'} out of ${stage.name} first`);
   }
-  const jobs = unwrap(
-    await supabase.from('jobs').select('id').eq('stage_id', id).limit(1),
-    'Failed to check stage jobs'
+  const remaining = (await listStages()).filter((item) => item.id !== id);
+  if (!remaining.length) {
+    throw new ApiError(409, 'The shop needs at least one stage');
+  }
+  // Finished (or cancelled) jobs still point at this stage — park them on the
+  // last stage. Their "moved to <this stage>" history lines go with the stage.
+  unwrap(
+    await supabase
+      .from('jobs')
+      .update({ stage_id: remaining[remaining.length - 1].id })
+      .eq('stage_id', id),
+    'Failed to move finished jobs off the stage'
   );
-  if (jobs?.length) {
-    throw new ApiError(409, 'This stage has jobs and cannot be deleted');
-  }
+  unwrap(
+    await supabase.from('job_stage_history').delete().eq('to_stage_id', id),
+    'Failed to clear stage history'
+  );
   unwrap(await supabase.from('stages').delete().eq('id', id), 'Failed to delete stage');
-  emitBoardRefresh();
+  await reorderStages(remaining.map((item) => item.id));
   return { id };
 }
 
@@ -153,6 +204,6 @@ export async function reorderStages(ids) {
   );
   const results = await Promise.all(updates);
   results.forEach((result) => unwrap(result, 'Failed to reorder stages'));
-  emitBoardRefresh();
+  await stagesChanged();
   return listStages();
 }

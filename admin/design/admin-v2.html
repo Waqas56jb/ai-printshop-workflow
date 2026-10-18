@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print Shop · Admin v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ADMIN v2 — left sidebar, big type (16px base), real stages (same as TV), working Files explorer.
+     Simple for a 90-year-old: 4 sections, plain words, one obvious action everywhere. */
+  :root{--paper:#F2F3F0;--sheet:#FFFFFF;--ink:#161A1F;--ink-2:#4A5361;--ink-3:#8A93A1;--rule:#D5D9D2;--rule-2:#E8EAE5;--magenta:#D9247B;--magenta-2:#FBE4EF;--green:#1F9D55;--green-2:#DFF3E7;--yellow-2:#FBF3D1;--red:#D5382E;--font:'Instrument Sans',system-ui,sans-serif;--r:12px}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--paper);color:var(--ink);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button,input,select{font:inherit;color:inherit}
+  button{cursor:pointer;border:0;background:none}
+  .num{font-variant-numeric:tabular-nums}
+  svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .btn{display:inline-flex;align-items:center;gap:9px;height:48px;padding:0 20px;border-radius:var(--r);font-weight:600;font-size:16px}
+  .btn-primary{background:var(--magenta);color:#fff}.btn-primary:hover{background:#BF1E6B}
+  .btn-ghost{border:2px solid var(--rule);background:var(--sheet)}.btn-ghost:hover{background:var(--paper)}
+
+  /* ===== LAYOUT: left sidebar + content (React: layouts/Shell.jsx + Sidebar.jsx) ===== */
+  .app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+  .side{background:var(--ink);color:#E8EAED;display:flex;flex-direction:column;padding:22px 14px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:12px;padding:4px 10px 26px}
+  .brand .mark{width:42px;height:42px;border-radius:12px;background:var(--magenta);color:#fff;display:grid;place-items:center;font-weight:700;font-size:20px}
+  .brand b{font-size:19px;font-weight:700;color:#fff}
+  .nav{display:flex;flex-direction:column;gap:6px}
+  .nav a{display:flex;align-items:center;gap:13px;padding:14px 14px;border-radius:var(--r);color:#C4CAD3;font-weight:600;font-size:17px;text-decoration:none}
+  .nav a svg{width:22px;height:22px}
+  .nav a:hover{background:rgba(255,255,255,.08);color:#fff}
+  .nav a.on{background:var(--magenta);color:#fff}
+  .side-voice{margin-top:auto;background:rgba(255,255,255,.06);border-radius:var(--r);padding:14px;display:flex;align-items:center;gap:11px}
+  .side-voice i{width:11px;height:11px;border-radius:50%;background:#34C46A;box-shadow:0 0 0 4px rgba(52,196,106,.2)}
+  .side-voice div b{display:block;color:#fff;font-size:15px}
+  .side-voice div span{font-size:13px;color:#8A93A1}
+  .side-foot{display:flex;align-items:center;gap:10px;padding:14px 10px 0;color:#8A93A1;font-size:14px}
+  .side-foot button{color:#C4CAD3;font-weight:600;margin-left:auto}
+
+  .main{min-width:0;display:flex;flex-direction:column}
+  .head{height:84px;background:var(--sheet);border-bottom:2px solid var(--rule);display:flex;align-items:center;gap:14px;padding:0 28px;position:sticky;top:0;z-index:5}
+  .head h1{font-size:24px;font-weight:700;flex:none}
+  .search{display:flex;align-items:center;gap:10px;background:var(--paper);border:2px solid var(--rule);border-radius:var(--r);padding:0 16px;height:50px;flex:1;max-width:420px;font-size:16px}
+  .search input{border:0;outline:0;width:100%;background:transparent}
+  .head .spacer{flex:1}
+  .content{padding:24px 28px 60px}
+
+  /* ===== JOBS: real stages, SAME columns as the TV (React: pages/JobsPage.jsx) ===== */
+  .board{display:flex;gap:14px;overflow-x:auto;padding-bottom:10px}
+  .scol{min-width:265px;flex:1}
+  .scol-h{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:700;padding:2px 4px 12px;border-top:5px solid var(--c);padding-top:10px}
+  .scol-h .n{margin-left:auto;background:var(--c);color:#fff;font-size:14px;font-weight:700;min-width:28px;height:28px;padding:0 9px;border-radius:99px;display:grid;place-items:center}
+  .job{background:var(--sheet);border:2px solid var(--rule);border-radius:var(--r);padding:16px;margin-bottom:12px;cursor:pointer}
+  .job:hover{border-color:var(--ink)}
+  .job .no{font-weight:700;font-size:17px}
+  .job .cust{color:var(--ink-2);margin-top:2px}
+  .job .thumbs{display:flex;gap:6px;margin-top:10px}
+  .job .thumbs img,.job .thumbs .t{width:46px;height:46px;border-radius:8px;border:1px solid var(--rule-2);background:repeating-conic-gradient(#E6E8E4 0 25%,#F2F3F0 0 50%) 0 0/10px 10px;object-fit:cover}
+  .job .thumbs .more{width:46px;height:46px;border-radius:8px;background:var(--paper);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--ink-2)}
+  .job .due{margin-top:10px;font-weight:600;font-size:15px;color:var(--ink-3)}
+  .job .due.today{color:#8A6B00}.job .due.over{color:var(--red)}
+  .job .next{margin-top:12px;width:100%;height:46px;border-radius:10px;background:var(--paper);font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .job .next:hover{background:var(--ink);color:#fff}
+  .empty-col{border:2px dashed var(--rule);border-radius:var(--r);padding:24px;text-align:center;color:var(--ink-3);font-size:15px}
+  /* Edit stages button + done column header style */
+  .pill-btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:99px;border:2px solid var(--rule);background:var(--sheet);font-weight:600;font-size:15px}
+  .pill-btn:hover{border-color:var(--ink)}
+
+  /* ===== FILES: explorer synced with jobs — customer folders auto (React: pages/FilesPage.jsx) ===== */
+  .files-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .crumbs{display:flex;align-items:center;gap:6px;font-size:18px;font-weight:600;flex:1;min-width:0}
+  .crumbs button{color:var(--ink-2);padding:8px 12px;border-radius:10px;font-weight:600}
+  .crumbs button:hover{background:var(--sheet)}
+  .crumbs .sep{color:var(--ink-3)}
+  .crumbs .here{color:var(--ink);padding:8px 12px}
+  .fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px}
+  .fitem{background:var(--sheet);border:2px solid var(--rule);border-radius:var(--r);padding:16px 12px;text-align:center;cursor:pointer;position:relative}
+  .fitem:hover{border-color:var(--ink)}
+  .fitem .fic{height:62px;display:grid;place-items:center;margin-bottom:8px}
+  .fitem .fic svg{width:54px;height:54px;stroke-width:1.3;fill:#F7DC7E;stroke:#D9AD17}
+  .fitem.file .fic svg{fill:none;stroke:var(--ink-3)}
+  .fitem .thumb{width:100%;aspect-ratio:4/3;border-radius:8px;object-fit:cover;background:repeating-conic-gradient(#E6E8E4 0 25%,#F2F3F0 0 50%) 0 0/14px 14px;border:1px solid var(--rule-2);margin-bottom:8px}
+  .fitem .nm{font-weight:600;font-size:15px;line-height:1.3;word-break:break-word}
+  .fitem .sub{font-size:13px;color:var(--ink-3);margin-top:2px}
+  .fitem .dots{position:absolute;top:8px;right:8px;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--ink-3);opacity:0}
+  .fitem:hover .dots{opacity:1}
+  .fitem .dots:hover{background:var(--paper);color:var(--ink)}
+  .upload-zone{border:3px dashed var(--rule);border-radius:var(--r);background:var(--sheet);display:grid;place-items:center;padding:24px;color:var(--ink-2);font-size:16px;font-weight:600;cursor:pointer;grid-column:1/-1}
+  .upload-zone b{color:var(--magenta)}
+  .ctx{position:absolute;top:48px;right:8px;background:var(--sheet);border:2px solid var(--rule);border-radius:var(--r);box-shadow:0 14px 40px rgba(22,26,31,.2);min-width:180px;overflow:hidden;z-index:6;text-align:left}
+  .ctx button{display:flex;align-items:center;gap:10px;width:100%;height:50px;padding:0 16px;font-size:16px;font-weight:500}
+  .ctx button:hover{background:var(--paper)}
+  .ctx button.del{color:var(--red)}
+  .ctx svg{width:18px;height:18px}
+
+  .section-note{background:var(--sheet);border:2px solid var(--rule);border-radius:var(--r);padding:14px 18px;color:var(--ink-2);font-size:15px;margin-bottom:18px}
+  .divider{margin:50px 0 30px;border-top:3px dashed var(--rule);text-align:center;color:var(--ink-3);font-size:13px;padding-top:8px}
+
+  /* ===== WORKER TV POLISH (same dark board, nicer) — reference strip ===== */
+  .tv{background:#0F1216;border-radius:18px;padding:22px;color:#F2F3F0;font-size:14px}
+  .tv .tvh{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .tv .tvh .mark{width:38px;height:38px;border-radius:10px;background:var(--magenta);display:grid;place-items:center;font-weight:700;font-size:18px;color:#fff}
+  .tv .tvh b{font-size:19px}
+  .tv .tvh .clock{margin-left:auto;font-size:26px;font-weight:700}
+  .tv .cols{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .tv .col{background:linear-gradient(180deg,#1A2026,#161B21);border-radius:14px;border-top:4px solid var(--c);padding:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+  .tv .col h2{font-size:15px;display:flex;align-items:center;gap:8px}
+  .tv .col h2 .n{margin-left:auto;background:var(--c);color:#fff;font-size:12px;font-weight:700;min-width:22px;height:22px;border-radius:99px;display:grid;place-items:center;padding:0 7px}
+  .tv .card{background:#222931;border-radius:10px;padding:10px 12px;margin-top:9px;border-left:4px solid transparent}
+  .tv .card b{font-size:14px}
+  .tv .card .c2{color:#B4BCC7;font-size:12.5px}
+  .tv .card.today{border-left-color:#F2C230}
+  .tv .card.over{border-left-color:#F0524A}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ===== SIDEBAR: 4 sections + voice status + sign out ===== -->
+  <aside class="side">
+    <div class="brand"><div class="mark">P</div><b>Print Shop</b></div>
+    <nav class="nav">
+      <a class="on" href="#"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Jobs</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Files</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Customers</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2"/></svg>Voice</a>
+    </nav>
+    <div class="side-voice"><i></i><div><b>Voice is on</b><span>Heard 2 min ago</span></div></div>
+    <div class="side-foot">Shop Admin<button>Sign out</button></div>
+  </aside>
+
+  <div class="main">
+    <!-- ===== JOBS PAGE ===== -->
+    <header class="head">
+      <h1>Jobs</h1>
+      <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Find a job or customer"></label>
+      <div class="spacer"></div>
+      <button class="pill-btn"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit stages</button>
+      <button class="btn btn-primary">+ New job</button>
+    </header>
+    <main class="content">
+      <!-- REAL stages — identical columns & colors to the TV board -->
+      <div class="board">
+        <div class="scol" style="--c:#8A93A1">
+          <div class="scol-h">Quote <span class="n num">1</span></div>
+          <div class="job"><div class="no">J-1043 · Banners</div><div class="cust">Zain Motors</div><div class="thumbs"><span class="t"></span></div><div class="due">Due Tue, 21 Oct</div><button class="next">→ Artwork</button></div>
+        </div>
+        <div class="scol" style="--c:#8B6CFF">
+          <div class="scol-h">Artwork <span class="n num">2</span></div>
+          <div class="job"><div class="no">J-1042 · Hoodie</div><div class="cust">Sarah Khan</div><div class="thumbs"><img alt=""><span class="more">+2</span></div><div class="due">Due Mon, 20 Oct</div><button class="next">→ Printing</button></div>
+          <div class="job"><div class="no">J-1019 · 200 Flyers</div><div class="cust">Ali Traders</div><div class="thumbs"><img alt=""></div><div class="due over">Late — was due Friday</div><button class="next">→ Printing</button></div>
+        </div>
+        <div class="scol" style="--c:#D9247B">
+          <div class="scol-h">Printing <span class="n num">1</span></div>
+          <div class="job"><div class="no">J-1031 · 50 T-Shirts</div><div class="cust">Sarah Khan</div><div class="thumbs"><img alt=""></div><div class="due today">Due today</div><button class="next">→ Ready</button></div>
+        </div>
+        <div class="scol" style="--c:#1F9D55">
+          <div class="scol-h">Ready <span class="n num">1</span></div>
+          <div class="job"><div class="no">J-1026 · Business cards</div><div class="cust">Dr. Fatima</div><div class="due">Waiting for pickup</div><button class="next">Done ✓</button></div>
+        </div>
+        <div class="scol" style="--c:#161A1F">
+          <div class="scol-h">Done <span class="n num">16</span></div>
+          <div class="job" style="opacity:.6"><div class="no">J-1030 · Cards</div><div class="cust">Dr. Fatima</div><div class="due">Done yesterday</div></div>
+        </div>
+      </div>
+    </main>
+
+    <div class="divider">— FILES page (same shell) — synced with jobs: upload here = shows on the job & TV —</div>
+
+    <!-- ===== FILES PAGE ===== -->
+    <header class="head">
+      <h1>Files</h1>
+      <div class="crumbs"><button>All customers</button><span class="sep">›</span><button>Sarah Khan</button><span class="sep">›</span><span class="here">J-1031 T-Shirts</span></div>
+      <button class="btn btn-ghost"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v6m-3-3h6"/></svg>New folder</button>
+      <button class="btn btn-primary"><svg viewBox="0 0 24 24"><path d="M12 21V9m0 0-4 4m4-4 4 4M4 7V4h16v3"/></svg>Upload</button>
+    </header>
+    <main class="content">
+      <div class="section-note">Files uploaded inside a job folder attach to that job — they show on the job card and the shop TV straight away.</div>
+      <div class="fgrid">
+        <div class="upload-zone">Drag files here, or press <b>Upload</b></div>
+        <!-- level 1 = customer folders (auto, from customers) ; level 2 = job folders (auto, from jobs) + own folders ; files anywhere -->
+        <div class="fitem"><div class="fic"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="nm">Old designs</div><div class="sub">12 files</div><button class="dots"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div>
+        <div class="fitem file"><img class="thumb" alt=""><div class="nm">front-logo-final.png</div><div class="sub">1.2 MB · 3 Oct</div><button class="dots"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div>
+        <div class="fitem file">
+          <img class="thumb" alt=""><div class="nm">back-print.png</div><div class="sub">900 KB · 3 Oct</div>
+          <button class="dots" style="opacity:1;background:var(--paper)"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+          <div class="ctx">
+            <button><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>Open</button>
+            <button><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg>Download</button>
+            <button><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Rename</button>
+            <button class="del"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2m-7 4v8m4-8v8M5 6l1 14h12l1-14"/></svg>Delete</button>
+          </div>
+        </div>
+        <div class="fitem file"><div class="fic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div><div class="nm">sizes-list.pdf</div><div class="sub">240 KB · 10 Oct</div><button class="dots"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></div>
+      </div>
+    </main>
+
+    <div class="divider">— WORKER TV polish reference (dark board — same stages, nicer cards, soft gradients) —</div>
+    <main class="content">
+      <div class="tv">
+        <div class="tvh"><div class="mark">P</div><b>Print Shop</b><span class="clock num">17:32</span></div>
+        <div class="cols">
+          <div class="col" style="--c:#8A93A1"><h2>Quote <span class="n num">1</span></h2><div class="card"><b>J-1043 Banners</b><div class="c2">Zain Motors · Tue 21</div></div></div>
+          <div class="col" style="--c:#8B6CFF"><h2>Artwork <span class="n num">2</span></h2><div class="card"><b>J-1042 Hoodie</b><div class="c2">Sarah Khan · Mon 20</div></div><div class="card over"><b>J-1019 200 Flyers</b><div class="c2">Ali Traders · Late</div></div></div>
+          <div class="col" style="--c:#D9247B"><h2>Printing <span class="n num">1</span></h2><div class="card today"><b>J-1031 50 T-Shirts</b><div class="c2">Sarah Khan · Today</div></div></div>
+          <div class="col" style="--c:#1F9D55"><h2>Ready <span class="n num">1</span></h2><div class="card"><b>J-1026 Business cards</b><div class="c2">Dr. Fatima · Pickup</div></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

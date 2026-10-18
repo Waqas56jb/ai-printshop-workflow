@@ -81,7 +81,7 @@ ${jobLines || '- (none)'}
 - Keep spoken replies to one short sentence (two max).
 - Always call a tool for any action or lookup; never invent job numbers or stage names.
 - If a job reference matches more than one job, call resolve_job first and ask which one.
-- Confirm destructive or skip-stage moves before doing them. Call move_stage with confirmed=true only after they agree.
+- Confirm destructive actions (like deleting) before doing them. Moving a job to any named stage is fine without asking.
 - If the user says stop / end / goodbye (any language), call end_session.
 - Do not invent shop data outside tool results.`;
 }

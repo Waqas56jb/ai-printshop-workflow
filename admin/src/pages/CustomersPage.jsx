@@ -1,13 +1,18 @@
+import { PageHeader } from '../components/PageHeader.jsx';
+
 export default function CustomersPage() {
   return (
-    <div className="page">
-      <div className="placeholder">
-        <h1>Customers</h1>
-        <p>Everyone who orders from the shop, with their phone number and jobs.</p>
-        <p className="hint" style={{ marginTop: 12 }}>
-          Coming next.
-        </p>
-      </div>
-    </div>
+    <>
+      <PageHeader title="Customers" />
+      <main className="content">
+        <div className="placeholder">
+          <h2>Customers</h2>
+          <p>Everyone who orders from the shop, with their phone number and jobs.</p>
+          <p className="hint" style={{ marginTop: 12 }}>
+            Coming next.
+          </p>
+        </div>
+      </main>
+    </>
   );
 }

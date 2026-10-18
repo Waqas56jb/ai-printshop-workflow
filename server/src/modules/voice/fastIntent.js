@@ -118,11 +118,13 @@ export function fastIntent(transcript, { jobs = [], stages = [] } = {}) {
 
   match = t.match(/^(?:move|send|put|take) (.+?) (?:to|into|in) (?:the )?(.+?)$/);
   if (match) {
-    const stage = matchStage(match[2], stages);
-    if (!stage) return null;
+    const next = /^next(?: stage)?$/.test(normalize(match[2]));
+    const stage = next ? null : matchStage(match[2], stages);
+    if (!stage && !next) return null;
     const who = SELF.test(match[1]) ? null : match[1];
-    if (who && !singleJob(who, jobs)) return null;
-    return intent('move_stage', { job_ref: who, stage: stage.name });
+    // Several matches is fine: the pipeline asks "Two jobs for Sarah — …?".
+    if (who && !jobsService.matchJobsByRef(who, jobs).length) return null;
+    return intent('move_stage', { job_ref: who, stage: next ? 'next' : stage.name });
   }
 
   match = t.match(new RegExp(`^(?:show|open|display|pull up)(?: me)? (.+?)(?:'s|s)? ${ART}$`));

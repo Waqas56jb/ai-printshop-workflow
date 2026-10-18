@@ -29,7 +29,7 @@ export const SETTING_DEFAULTS = {
   default_priority: 'normal',
   product_types: ['T-Shirt', 'Hoodie', 'Flyer', 'Business card', 'Banner', 'Sticker'],
   print_types: ['Screen print', 'DTF', 'DTG', 'Sublimation', 'Digital', 'Offset'],
-  require_artwork_before_printing: true,
+  require_artwork_before_printing: false,
   notify_overdue_email: true,
   notify_pending_voice: true,
   notify_daily_summary: false,

@@ -1,49 +1,32 @@
-// Plain-words helpers for the simple panel: the 4-column view over the real
-// stages, due lines, history lines and toast messages.
+// Plain-words helpers for the simple panel. The Jobs tab shows one column per
+// real stage (same order and colors as the TV board) plus a "Done" column.
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export const COLUMNS = [
-  { key: 'new', label: 'New' },
-  { key: 'working', label: 'Working' },
-  { key: 'ready', label: 'Ready' },
-  { key: 'done', label: 'Done' },
-];
+export const DONE = 'done';
 
-// New = default stage, Ready = the stage named "Ready" (or second-to-last),
-// Done = completed jobs, Working = every other stage collapsed together.
-export function stageView(stages = []) {
-  const sorted = [...stages].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-  const newStage = sorted.find((stage) => stage.is_default) || sorted[0] || null;
-  const final = sorted.find((stage) => stage.is_final) || sorted[sorted.length - 1] || null;
-  const ready =
-    sorted.find((stage) => String(stage.name || '').trim().toLowerCase() === 'ready') ||
-    sorted[sorted.length - 2] ||
-    null;
-  // "Start work" moves a new job to the first stage after New.
-  const start =
-    sorted.find(
-      (stage) =>
-        stage.id !== newStage?.id &&
-        stage.id !== ready?.id &&
-        !stage.is_final &&
-        (stage.position ?? 0) > (newStage?.position ?? 0)
-    ) || ready;
-  return { newStage, ready, start, final };
+export function sortStages(stages = []) {
+  return [...stages].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }
 
-export function columnOf(job, view) {
-  if (job.status === 'completed') return 'done';
-  if (job.stage_id === view.newStage?.id) return 'new';
-  if (job.stage_id === view.ready?.id) return 'ready';
-  return 'working';
+// Which column a job sits in: its stage, or "done" once completed.
+export function columnKey(job) {
+  return job.status === 'completed' ? DONE : job.stage_id;
+}
+
+export function nextStage(stages, stageId) {
+  const index = stages.findIndex((stage) => stage.id === stageId);
+  return index >= 0 && index < stages.length - 1 ? stages[index + 1] : null;
+}
+
+export function isLastStage(stages, stageId) {
+  return stages.length > 0 && stages[stages.length - 1].id === stageId;
 }
 
 function startOfDay(value) {
-  const date = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? new Date(`${value}T00:00:00`)
-    : new Date(value);
+  const date =
+    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
   date.setHours(0, 0, 0, 0);
   return date;
 }
@@ -75,13 +58,13 @@ export function whenWords(value) {
   return day === 'today' ? clockTime(value) : `${day[0].toUpperCase()}${day.slice(1)}, ${clockTime(value)}`;
 }
 
-// "Due today", "Late — was due Friday", "Waiting for pickup", "Done yesterday".
-export function dueLine(job, column) {
-  if (column === 'done') {
+// "Due today", "Late — was due Friday", "Done yesterday".
+export function dueLine(job) {
+  if (job.status === 'completed') {
     const at = job.completed_at || job.updated_at;
     return { text: at ? `Done ${dayWords(at)}` : 'Done', tone: '' };
   }
-  if (column === 'ready') return { text: 'Waiting for pickup', tone: 'ready' };
+  if (/^ready$/i.test(String(job.stage?.name || '').trim())) return { text: 'Waiting for pickup', tone: '' };
   if (!job.due_date) return { text: 'No due date', tone: '' };
   const diff = daysFromToday(job.due_date);
   if (diff < 0) return { text: `Late — was due ${dayWords(job.due_date)}`, tone: 'late' };
@@ -93,27 +76,20 @@ export function firstName(name) {
   return String(name || '').trim().split(/\s+/)[0] || '';
 }
 
-// "Sarah's 50 T-Shirts" / "the Hoodie" when there is no customer.
+// "Sarah's 50 T-Shirts", or just the title when there is no customer.
 export function jobPhrase(job) {
   const who = firstName(job.customer?.name);
   const title = job.title || job.job_number || 'job';
   return who ? `${who}'s ${title}` : title;
 }
 
-function isPlural(job) {
-  return /s$/i.test(String(job.title || '').trim()) || Number(job.quantity) > 1;
+// Toast after a move: "Sarah's 50 T-Shirts → Printing", or "… — PAID. All done ✓".
+export function movedToast(job, stage, completed) {
+  return completed ? `${jobPhrase(job)} — ${stage.name}. All done ✓` : `${jobPhrase(job)} → ${stage.name}`;
 }
 
-export function readyToast(job) {
-  return `${jobPhrase(job)} ${isPlural(job) ? 'are' : 'is'} Ready`;
-}
-
-export function pickedUpToast(job) {
-  return `${jobPhrase(job)} ${isPlural(job) ? 'were' : 'was'} picked up — all done`;
-}
-
-export function startedToast(job) {
-  return `Started work on ${jobPhrase(job)}`;
+export function doneToast(job) {
+  return `${jobPhrase(job)} — all done ✓`;
 }
 
 export function errorWords(error, fallback = 'Something went wrong. Please try again.') {
@@ -121,9 +97,17 @@ export function errorWords(error, fallback = 'Something went wrong. Please try a
 }
 
 // One plain list of what happened to a job: stage moves, files and notes.
-export function historyLines(job, view) {
+export function historyLines(job, stages = []) {
+  const last = stages[stages.length - 1];
   const lines = [];
-  for (const row of job.history || []) {
+  const rows = job.history || [];
+  // The oldest row is the job being made (later rows can lose their "from"
+  // stage when that stage is removed).
+  const first = rows.reduce(
+    (oldest, row) => (!oldest || new Date(row.created_at) < new Date(oldest.created_at) ? row : oldest),
+    null
+  );
+  for (const row of rows) {
     const by =
       row.source === 'voice'
         ? 'by voice'
@@ -131,11 +115,8 @@ export function historyLines(job, view) {
           ? `by ${firstName(row.changed_by_profile.full_name)}`
           : '';
     let what;
-    if (!row.from_stage_id) what = 'Job created';
-    else if (row.to_stage_id === view.final?.id) what = 'Picked up';
-    else if (row.to_stage_id === view.newStage?.id) what = 'Moved back to New';
-    else if (row.to_stage_id === view.ready?.id) what = 'Moved to Ready';
-    else what = `Moved to ${row.to_stage?.name || 'Working'}`;
+    if (row === first && !row.from_stage_id) what = 'Job created';
+    else what = `Moved to ${row.to_stage?.name || 'another stage'}${row.to_stage_id === last?.id ? ' — done' : ''}`;
     lines.push({ at: row.created_at, text: [what, by].filter(Boolean).join(' ') });
   }
   for (const file of job.artworks || []) {

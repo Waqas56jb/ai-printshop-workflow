@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { addJobFile, deleteJob, getJob, updateJob } from '../../services/jobs.service.js';
+import { addJobFile, deleteJob, getJob, moveJobStage, updateJob } from '../../services/jobs.service.js';
 import { announceJobsChanged } from '../../hooks/useJobBoard.js';
 import {
-  COLUMNS,
-  columnOf,
   dueLine,
   errorWords,
   fileExt,
   historyLines,
   isImageFile,
   jobPhrase,
+  movedToast,
   whenWords,
 } from '../../utils/plain.js';
 import { Modal } from '../Modal.jsx';
@@ -60,7 +59,7 @@ function DeleteDialog({ job, onCancel, onDeleted }) {
   );
 }
 
-export function JobSheet({ jobId, view, version, onClose }) {
+export function JobSheet({ jobId, stages, version, onClose }) {
   const [job, setJob] = useState(null);
   const [error, setError] = useState('');
   const [editingDue, setEditingDue] = useState(false);
@@ -69,6 +68,7 @@ export function JobSheet({ jobId, view, version, onClose }) {
   const [uploading, setUploading] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [movingTo, setMovingTo] = useState(null);
   const fileInput = useRef(null);
 
   const load = useCallback(async () => {
@@ -116,6 +116,20 @@ export function JobSheet({ jobId, view, version, onClose }) {
     }
   }
 
+  async function moveTo(stage) {
+    setMovingTo(stage.id);
+    try {
+      const moved = await moveJobStage(job.id, stage.id);
+      toast(movedToast(job, stage, moved?.status === 'completed'));
+      announceJobsChanged();
+      await load();
+    } catch (err) {
+      toast(errorWords(err, 'Could not move the job.'));
+    } finally {
+      setMovingTo(null);
+    }
+  }
+
   function openFile(file) {
     if (isImageFile(file)) setViewing(file);
     else window.open(file.file_url, '_blank', 'noopener');
@@ -129,11 +143,11 @@ export function JobSheet({ jobId, view, version, onClose }) {
     );
   }
 
-  const column = columnOf(job, view);
-  const columnLabel = COLUMNS.find((item) => item.key === column)?.label;
-  const due = dueLine(job, column);
+  const done = job.status === 'completed';
+  const stage = stages.find((item) => item.id === job.stage_id) || job.stage;
+  const due = dueLine(job);
   const files = [...(job.artworks || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  const history = historyLines(job, view);
+  const history = historyLines(job, stages);
   const flag = due.tone === 'late' || due.tone === 'today';
 
   return (
@@ -143,7 +157,9 @@ export function JobSheet({ jobId, view, version, onClose }) {
         onClose={onClose}
         title={
           <>
-            <span className={`stage-badge ${column}`}>{columnLabel}</span>
+            <span className="stage-badge" style={{ '--stage': stage?.color || '#7b8491' }}>
+              {done ? `Done · ${stage?.name || ''}` : stage?.name}
+            </span>
             <div>{job.title}</div>
             <div className="hint" style={{ fontSize: 17, fontWeight: 600 }}>
               {job.job_number}
@@ -176,6 +192,29 @@ export function JobSheet({ jobId, view, version, onClose }) {
             </button>
           </div>
         ) : null}
+
+        <div className="sheet-section">
+          <h3>Move to…</h3>
+          <div className="move-row">
+            {stages.map((item) => {
+              const here = item.id === job.stage_id && !done;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`btn move-btn${here ? ' here' : ''}`}
+                  style={{ '--stage': item.color }}
+                  disabled={here || Boolean(movingTo)}
+                  onClick={() => moveTo(item)}
+                >
+                  <i />
+                  {movingTo === item.id ? 'Moving…' : item.name}
+                  {here ? ' (now)' : ''}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="sheet-section">
           <h3>Files</h3>

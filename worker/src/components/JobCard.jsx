@@ -41,6 +41,7 @@ export function JobCard({ job, stageId, stageName, settings, prevJobs, focused =
       <div className="card-top">
         <span className="jn">{job.job_number}</span>
         {prio ? <span className={`prio ${prio}`}>{prio === 'urgent' ? 'Urgent' : 'High'}</span> : null}
+        {job.thumb_url ? <img className="card-thumb" src={job.thumb_url} alt="" loading="lazy" /> : null}
       </div>
 
       {showCustomer ? (

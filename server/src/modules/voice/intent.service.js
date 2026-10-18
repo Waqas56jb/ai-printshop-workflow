@@ -7,7 +7,6 @@ import * as jobsService from '../jobs/jobs.service.js';
 import * as notesService from '../notes/notes.service.js';
 import * as stagesService from '../stages/stages.service.js';
 import * as customersService from '../customers/customers.service.js';
-import * as settingsService from '../settings/settings.service.js';
 import { buildIntentPrompt } from './intent.prompt.js';
 import { fastIntent } from './fastIntent.js';
 
@@ -193,6 +192,8 @@ export function needsConfirmation(intent, matches, autoExecute, threshold = 0.7)
   if (TV_INSTANT_ACTIONS.has(intent.action)) return false;
   if (!autoExecute) return true;
   if (intent.confidence < Number(threshold)) return true;
+  // A stage move that matches a few jobs asks "which one?" out loud instead.
+  if (intent.action === 'move_stage' && matches.length > 1 && matches.length <= 4) return false;
   if (AMBIGUITY_REQUIRES_CONFIRMATION.has(intent.action)) {
     return matches.length !== 1;
   }
@@ -216,7 +217,7 @@ function candidatesPrompt(matches) {
   return `${COUNT_WORDS[matches.length] || matches.length} jobs${forWho} — ${list}?`;
 }
 
-export async function executeIntent(intent, { userId, jobs, allowSkip = false, focusedJobId = null }) {
+export async function executeIntent(intent, { userId, jobs, focusedJobId = null }) {
   switch (intent.action) {
     case 'create_job': {
       const customerName = intent.customer_name || 'Walk-in';
@@ -245,7 +246,22 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
       };
     }
     case 'move_stage': {
-      const { job: matched } = resolveJobWithFocus(intent, jobs, focusedJobId);
+      const { job: matched, matches } = resolveJobWithFocus(intent, jobs, focusedJobId);
+      if (!matched && matches.length > 1) {
+        // "Which one?" — the answer finishes this same move (see resolvePendingChoice).
+        const prompt = candidatesPrompt(matches);
+        return {
+          result: matches,
+          reply: prompt,
+          job_id: null,
+          board_action: {
+            type: 'confirm',
+            candidates: matches,
+            prompt,
+            then: { action: 'move_stage', stage: intent.stage || 'next' },
+          },
+        };
+      }
       if (!matched) {
         throw new ApiError(400, 'Could not resolve job');
       }
@@ -253,26 +269,23 @@ export async function executeIntent(intent, { userId, jobs, allowSkip = false, f
       const [stages, live] = await Promise.all([stagesService.listStages(), jobsService.getJobRow(matched.id)]);
       const job = { ...matched, stage_id: live.stage_id };
       const stageRef = String(intent.stage || '').trim().toLowerCase();
-      let stage = null;
-      if (ADVANCE_STAGE_WORDS.has(stageRef)) {
+      // A real stage name wins ("move it to ready" → the Ready stage); otherwise
+      // "done" / "next" / "finished" means one stage forward.
+      let stage = stages.find((item) => item.name.trim().toLowerCase() === stageRef) || null;
+      if (!stage && ADVANCE_STAGE_WORDS.has(stageRef)) {
         const currentIdx = stages.findIndex((item) => item.id === job.stage_id);
         stage = currentIdx >= 0 && currentIdx < stages.length - 1 ? stages[currentIdx + 1] : null;
         if (!stage) {
           throw new ApiError(400, `${job.job_number} is already at the final stage`);
         }
-      } else {
+      } else if (!stage) {
         stage = await stagesService.findStageByName(intent.stage);
       }
       if (!stage) {
         throw new ApiError(400, 'Could not resolve stage');
       }
-      const fromIdx = stages.findIndex((item) => item.id === job.stage_id);
-      const toIdx = stages.findIndex((item) => item.id === stage.id);
-      const settings = await settingsService.getSettings();
-      if (!allowSkip && !settings.voice_allow_skip && fromIdx >= 0 && toIdx >= 0 && Math.abs(toIdx - fromIdx) > 1) {
-        const fromName = stages[fromIdx]?.name || 'this stage';
-        throw new ApiError(400, `Can't skip from ${fromName} to ${stage.name}`);
-      }
+      // A named stage is a deliberate jump, so any stage is allowed; "done" /
+      // "next" above only ever moves one stage forward.
       const moved = await jobsService.moveJobStage(job.id, stage.id, userId, 'voice');
       invalidateIntentContext();
       return {

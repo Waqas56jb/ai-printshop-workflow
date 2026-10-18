@@ -64,7 +64,7 @@ export const toolSchemas = [
   {
     type: 'function',
     name: 'move_stage',
-    description: 'Move a job to a stage. Use confirmed=true only after the user agrees to skip stages.',
+    description: 'Move a job to any stage by name.',
     parameters: {
       type: 'object',
       properties: {
@@ -247,27 +247,8 @@ export function createToolExecutor(overrides = {}) {
           const stage = await deps.findStageByName(args.stage);
           if (!stage) throw new ApiError(400, 'Unknown stage');
           const job = await deps.getJob(args.job_id);
-          const stages = await deps.listStages();
-          const settings = await deps.getSettings();
-          const fromIdx = stages.findIndex((row) => row.id === job.stage_id);
-          const toIdx = stages.findIndex((row) => row.id === stage.id);
-          const skipping = fromIdx >= 0 && toIdx >= 0 && Math.abs(toIdx - fromIdx) > 1;
-          const allowSkip = Boolean(settings.voice_allow_skip) || Boolean(args.confirmed);
-          if (skipping && !allowSkip) {
-            return {
-              ok: false,
-              needs_confirmation: true,
-              error: `Can't skip from ${stages[fromIdx]?.name || 'this stage'} to ${stage.name}`,
-              result: {
-                job: compactJob(job),
-                from: stages[fromIdx]?.name,
-                to: stage.name,
-              },
-            };
-          }
-          const moved = await deps.moveJobStage(job.id, stage.id, user.id, 'voice', {
-            allowSkip,
-          });
+          // A named stage is a deliberate jump — any stage is allowed.
+          const moved = await deps.moveJobStage(job.id, stage.id, user.id, 'voice');
           await record(user, 'move_stage', `move ${job.job_number} to ${stage.name}`, { job_id: job.id });
           return { ok: true, result: compactJob(moved) };
         }

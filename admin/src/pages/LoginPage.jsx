@@ -45,7 +45,11 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
-        <h1>Print Shop</h1>
+        <div className="brand">
+          <span className="mark">P</span>
+          <b>Print Shop</b>
+        </div>
+        <h1>Sign in</h1>
         <p className="hint">Sign in to see the jobs.</p>
         <label className="field">
           <span>Email</span>

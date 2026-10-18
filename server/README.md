@@ -76,10 +76,12 @@ All JSON responses: `{ success, data, message }` unless noted.
 | Method | Path | Auth | Body | Description |
 |--------|------|------|------|-------------|
 | GET | `/api/stages` | any logged-in | | List in position order |
-| POST | `/api/stages` | admin | `{ name, slug?, color?, position?, is_default?, is_final? }` | Create |
+| POST | `/api/stages` | admin | `{ name, color? }` | Create (goes just before the last stage; alias = lowercase name) |
 | PATCH | `/api/stages/reorder` | admin | `{ ids: uuid[] }` | Set position from array order |
 | PATCH | `/api/stages/:id` | admin | partial stage fields | Update |
-| DELETE | `/api/stages/:id` | admin | | Delete if unused |
+| DELETE | `/api/stages/:id` | admin | | Delete — 409 "Move the N jobs out of {stage} first" while it has active jobs |
+
+Rules kept after every change: the first stage is the default for new jobs, the last stage completes the job. Every change emits `board:refresh`, so the TV and the panel update live, and voice picks up the new stage names at once.
 
 ### Jobs
 
@@ -102,6 +104,19 @@ All JSON responses: `{ success, data, message }` unless noted.
 | GET | `/api/jobs/:id/artworks` | admin+staff | | List versions |
 | PATCH | `/api/artworks/:id/approve` | admin+staff | | Set `is_approved` |
 | DELETE | `/api/artworks/:id` | admin+staff | | Delete file + row |
+
+### Files
+
+A view over real records: the root holds one folder per customer (with jobs or files); a customer folder holds one folder per job plus its own folders and loose files; a job folder holds that job's artworks. Paths/ids: `c:<customer>`, `j:<job>`, `f:<folder>`, `a:<artwork>`, `s:<shop file>`. Customer and job folders can't be renamed or deleted.
+
+| Method | Path | Auth | Body | Description |
+|--------|------|------|------|-------------|
+| GET | `/api/files?path=` | admin+staff | | `{ crumbs, items, can_upload, can_new_folder }` |
+| POST | `/api/files/upload?path=` | admin+staff | multipart `files` (up to 20, 25mb each) | In a job folder → job artworks (approved; on the job card and the TV); elsewhere → `shop_files` in the private `shop-files` bucket |
+| POST | `/api/files/folder` | admin+staff | `{ path, name }` | New folder |
+| PATCH | `/api/files/:id` | admin+staff | `{ name }` | Rename a file or folder |
+| DELETE | `/api/files/:id` | admin+staff | | Delete a file, or an empty folder |
+| GET | `/api/files/:id/download` | admin+staff | | `{ url, name }` — short-lived signed download link |
 
 ### Notes
 

@@ -99,13 +99,10 @@ describe('realtime tools', () => {
     assert.equal(result.result.stage_id, 's2');
   });
 
-  it('move_stage skip is blocked unless confirmed', async () => {
+  it('move_stage to a named stage can jump stages', async () => {
     const { execute } = makeExecutor();
-    const blocked = await execute('move_stage', { job_id: 'j1', stage: 'QC' }, { id: 'u1' });
-    assert.equal(blocked.ok, false);
-    assert.equal(blocked.needs_confirmation, true);
-    const allowed = await execute('move_stage', { job_id: 'j1', stage: 'QC', confirmed: true }, { id: 'u1' });
-    assert.equal(allowed.ok, true);
+    const result = await execute('move_stage', { job_id: 'j1', stage: 'QC' }, { id: 'u1' });
+    assert.equal(result.ok, true);
   });
 
   it('move_stage artwork-required is blocked', async () => {

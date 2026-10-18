@@ -310,10 +310,12 @@ async function settleBuffer(key, uid, sessionId, version) {
 async function gateWithEchoGuard(uid, text, settings, fast) {
   if (boardVoiceService.isEchoOfBoard(text)) return { kind: 'ignore', reason: 'echo' };
   // While the TV talks, only a deliberate command gets through (barge-in): the
-  // wake phrase if one is configured, otherwise a recognised fast-path command.
+  // wake phrase if one is configured, otherwise a recognised fast-path command,
+  // or a short answer to "which one?" ("Hamza's") that names one of the choices.
   if (boardVoiceService.isBoardSpeaking()) {
     const phrases = wakePhrases(settings);
-    const bargeIn = phrases ? Boolean(findWake(text, phrases)) : Boolean(fast);
+    const answersChoice = wordCount(text) <= 3 && Boolean(boardVoiceService.resolvePendingChoice(text));
+    const bargeIn = phrases ? Boolean(findWake(text, phrases)) : Boolean(fast) || answersChoice;
     if (!bargeIn) return { kind: 'ignore', reason: 'tv_speaking' };
   }
   return gateUtterance(uid, text, settings, { fast });
@@ -414,7 +416,19 @@ async function runCommand(uid, sessionId, command, timing = {}) {
 
     let result;
     const choice = boardVoiceService.resolvePendingChoice(command);
-    if (choice) {
+    if (choice?.then?.action === 'move_stage') {
+      // "Which hoodie?" — "Hamza's": finish the move on the chosen job.
+      boardVoiceService.clearPendingChoice();
+      const where = choice.then.stage === 'next' ? 'the next stage' : choice.then.stage;
+      result = await voiceService.runIntentPipeline({
+        transcript: `move ${choice.job_number} to ${where}`,
+        userId: profile?.id || null,
+        omiUid: uid,
+        userName: profile?.full_name || null,
+        wakeHandled: true,
+        timing,
+      });
+    } else if (choice) {
       const reply = `Here's ${choice.job_number} for ${choice.customer_name || 'the customer'}.`;
       await boardVoiceService.notify({
         transcript: command,
