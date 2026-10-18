@@ -15,13 +15,15 @@ export default function App() {
       <AppRouter />
       <Toaster
         position="bottom-center"
+        duration={5000}
         toastOptions={{
           style: {
             background: 'var(--ink)',
             color: '#fff',
             border: 'none',
-            borderRadius: '10px',
+            borderRadius: '12px',
             fontFamily: 'var(--font)',
+            fontSize: '18px',
           },
         }}
       />

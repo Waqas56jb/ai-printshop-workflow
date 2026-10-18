@@ -50,7 +50,7 @@ router.patch(
   jobsController.assign
 );
 router.patch('/:id/complete', validate({ params: jobIdParams }), jobsController.complete);
-router.delete('/:id', requireRole('admin'), validate({ params: jobIdParams }), jobsController.remove);
+router.delete('/:id', validate({ params: jobIdParams }), jobsController.remove);
 
 router.get('/:id/artworks', validate({ params: jobIdParams }), artworkController.list);
 router.post(

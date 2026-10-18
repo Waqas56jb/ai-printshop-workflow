@@ -53,7 +53,7 @@ function broadcastBoard(event, payload) {
   void relayBoardEvent(event, payload);
 }
 
-// A real TV (not an Admin/Staff preview) is showing the board right now — either
+// A real TV (not an Admin panel preview) is showing the board right now — either
 // over a socket or by polling /api/board/events in the last few seconds.
 let lastTvPollAt = 0;
 

@@ -56,7 +56,7 @@ router.patch(
 router.delete(
   '/artifacts/:id',
   authenticate,
-  requireRole('admin'),
+  requireRole('admin', 'staff'),
   validate({ params: idParams }),
   artifactsController.remove
 );

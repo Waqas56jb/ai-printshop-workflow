@@ -108,7 +108,10 @@ export async function listJobs(filters) {
   let query = supabase
     .from('jobs')
     .select(JOB_LIST_SELECT, { count: 'exact' })
-    .order('created_at', { ascending: false })
+    .order(filters.sort === 'completed' ? 'completed_at' : 'created_at', {
+      ascending: false,
+      nullsFirst: false,
+    })
     .range(from, to);
 
   if (stage) query = query.eq('stage_id', stage);

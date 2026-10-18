@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import * as authService from '../services/auth.service.js';
 
+// Admin and staff accounts both use this panel, with the same permissions.
+export const PANEL_ROLES = ['admin', 'staff'];
+
 export const useAuthStore = create((set) => ({
   user: null,
   profile: null,
@@ -16,7 +19,7 @@ export const useAuthStore = create((set) => ({
         return;
       }
       const profile = await authService.getMe();
-      if (profile.role !== 'admin') {
+      if (!PANEL_ROLES.includes(profile.role)) {
         await authService.signOut();
         set({ user: null, profile: null, session: null, loading: false });
         return;
@@ -31,9 +34,9 @@ export const useAuthStore = create((set) => ({
     set({ error: null });
     const data = await authService.signIn(email, password);
     const profile = await authService.getMe();
-    if (profile.role !== 'admin') {
+    if (!PANEL_ROLES.includes(profile.role)) {
       await authService.signOut();
-      const error = new Error('This account is not an admin');
+      const error = new Error('This account cannot use the shop panel');
       set({ error: error.message, user: null, profile: null, session: null });
       throw error;
     }

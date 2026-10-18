@@ -7,7 +7,7 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/admin', requireRole('admin'), dashboardController.admin);
+router.get('/admin', requireRole('admin', 'staff'), dashboardController.admin);
 router.get('/staff', requireRole('admin', 'staff'), dashboardController.staff);
 
 export default router;

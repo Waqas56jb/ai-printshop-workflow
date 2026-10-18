@@ -1,6 +1,6 @@
 # AI Print Shop Workflow — server
 
-Express + Socket.io API for the Admin, Staff, and Worker (TV) panels. Database is Supabase (Postgres + Storage).
+Express + Socket.io API for the Admin panel (`/admin`, used by both admin and staff accounts) and the Worker TV board (`/worker`). Database is Supabase (Postgres + Storage).
 
 ## Setup
 
@@ -133,7 +133,7 @@ All JSON responses: `{ success, data, message }` unless noted.
 | PATCH | `/api/voice/:id/confirm` | admin+staff | | Execute a pending command |
 | PATCH | `/api/voice/:id/reject` | admin+staff | | Reject a pending command |
 
-### Realtime voice (staff)
+### Realtime voice (browser)
 
 | Method | Path | Auth | Body | Description |
 |--------|------|------|------|-------------|

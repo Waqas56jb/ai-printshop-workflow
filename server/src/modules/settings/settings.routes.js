@@ -12,7 +12,7 @@ const logoUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-router.use(authenticate, requireRole('admin'));
+router.use(authenticate, requireRole('admin', 'staff'));
 
 router.get('/', settingsController.list);
 router.get('/export', settingsController.exportData);

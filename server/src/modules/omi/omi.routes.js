@@ -9,8 +9,8 @@ router.post('/webhook', omiController.webhook);
 router.post('/audio', express.raw({ type: () => true, limit: '10mb' }), omiController.audio);
 router.post('/board-relay', omiController.boardRelay);
 router.get('/setup-status', omiController.setupStatus);
-router.get('/webhook-url', authenticate, requireRole('admin'), omiController.webhookUrl);
-router.get('/debug', authenticate, requireRole('admin'), omiController.debug);
+router.get('/webhook-url', authenticate, requireRole('admin', 'staff'), omiController.webhookUrl);
+router.get('/debug', authenticate, requireRole('admin', 'staff'), omiController.debug);
 router.get('/live-debug', omiController.liveDebug);
 
 export default router;

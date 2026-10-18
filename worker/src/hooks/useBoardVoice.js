@@ -176,7 +176,7 @@ export function useBoardVoice(
         setView('confirm');
         break;
       case 'board:speak':
-        // Admin/Staff embed this board as a silent preview — only the real TV talks,
+        // The Admin panel embeds this board as a silent preview — only the real TV talks,
         // otherwise several tabs say the same reply and it sounds like agents chatting.
         if (!payload.muted && !preview) {
           speakOnce(payload._seq, () => playAudio(payload.audio_base64, payload.mime, payload.text));

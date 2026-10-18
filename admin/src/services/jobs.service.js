@@ -177,3 +177,17 @@ export function duePresetToRange(due) {
   }
   return {};
 }
+
+// The simple panel has no separate "approve" step: a file added there is the
+// design, so it is approved right away (otherwise voice can't move the job to Printing).
+export async function addJobFile(jobId, file) {
+  const artwork = await uploadArtwork(jobId, file);
+  if (artwork?.id && !artwork.is_approved) {
+    try {
+      return await approveArtwork(artwork.id);
+    } catch {
+      return artwork;
+    }
+  }
+  return artwork;
+}

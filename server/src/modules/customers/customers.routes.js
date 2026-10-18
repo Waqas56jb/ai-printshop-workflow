@@ -39,7 +39,6 @@ router.get('/:id', validate({ params: idParams }), customersController.getById);
 router.patch('/:id', validate({ params: idParams, body: customerPatch }), customersController.update);
 router.delete(
   '/:id',
-  requireRole('admin'),
   validate({ params: idParams }),
   customersController.remove
 );

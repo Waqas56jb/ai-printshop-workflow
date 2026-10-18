@@ -14,6 +14,7 @@ export const jobListQuery = z.object({
   due_from: z.string().optional(),
   due_to: z.string().optional(),
   search: z.string().optional(),
+  sort: z.enum(['recent', 'completed']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

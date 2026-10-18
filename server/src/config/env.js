@@ -19,10 +19,8 @@ const envSchema = z.object({
     .default(
       [
         'http://localhost:5173',
-        'http://localhost:5174',
         'http://localhost:5175',
         'https://ai-printshop-workflow-admin.vercel.app',
-        'https://ai-printshop-workflow-staff.vercel.app',
         'https://ai-printshop-workflow-worker.vercel.app',
       ].join(',')
     ),
