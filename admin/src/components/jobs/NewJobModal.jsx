@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { announceJobsChanged } from '../../hooks/useJobBoard.js';
+import { useUploads } from '../../hooks/useUploads.js';
 import { addJobFile, createCustomer, createJob, listCustomers } from '../../services/jobs.service.js';
 import { errorWords } from '../../utils/plain.js';
 import { Modal } from '../Modal.jsx';
+import { UploadRows } from '../UploadRows.jsx';
 
 // Existing customer with this exact name, or a new one.
 async function customerIdFor(name) {
@@ -15,15 +17,23 @@ async function customerIdFor(name) {
   return created.id;
 }
 
-export function NewJobModal({ onClose }) {
-  const [customer, setCustomer] = useState('');
+function sizeWords(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+export function NewJobModal({ onClose, initialCustomer = '', onCreated }) {
+  const [customer, setCustomer] = useState(initialCustomer);
   const [what, setWhat] = useState('');
   const [quantity, setQuantity] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [names, setNames] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [made, setMade] = useState(null);
+  const fileInput = useRef(null);
+  const uploads = useUploads();
 
   // Suggest existing customers while typing.
   useEffect(() => {
@@ -40,6 +50,11 @@ export function NewJobModal({ onClose }) {
     return () => clearTimeout(id);
   }, [customer]);
 
+  function addFiles(list) {
+    const picked = Array.from(list || []);
+    setFiles((current) => [...current, ...picked]);
+  }
+
   async function submit(event) {
     event.preventDefault();
     if (!customer.trim()) return setError('Please type the customer name.');
@@ -54,15 +69,17 @@ export function NewJobModal({ onClose }) {
         quantity: Number(quantity) > 0 ? Number(quantity) : 1,
         due_date: dueDate || undefined,
       });
-      if (file) {
-        try {
-          await addJobFile(job.id, file);
-        } catch (err) {
-          toast(`The job was made, but the file did not upload: ${errorWords(err)}`);
-        }
-      }
+      setMade(job);
       announceJobsChanged();
-      toast(`New job for ${customer.trim()} — ${job.job_number}`);
+      onCreated?.(job);
+      const done = files.length ? await uploads.run(files, (file, onPct) => addJobFile(job.id, file, onPct)) : 0;
+      announceJobsChanged();
+      if (done < files.length) {
+        // Keep the dialog open so the failed files and their reasons can be read.
+        toast(`New job ${job.job_number} made — ${files.length - done} file${files.length - done === 1 ? '' : 's'} did not upload`);
+        return;
+      }
+      toast(`New job for ${customer.trim()} — ${job.job_number}${done ? ` with ${done} file${done === 1 ? '' : 's'}` : ''}`);
       onClose();
     } catch (err) {
       setError(errorWords(err, 'Could not make the job. Please try again.'));
@@ -71,8 +88,24 @@ export function NewJobModal({ onClose }) {
     }
   }
 
+  if (made && !saving) {
+    return (
+      <Modal title={`${made.job_number} is made`} onClose={onClose}>
+        <p style={{ fontSize: 18, marginBottom: 14 }}>
+          Some files did not upload. You can add them again from the job card.
+        </p>
+        <UploadRows rows={uploads.rows} />
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-primary" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
-    <Modal title="New job" onClose={onClose}>
+    <Modal title="New job" onClose={saving ? undefined : onClose}>
       <form onSubmit={submit}>
         <label className="field">
           <span>Customer</span>
@@ -83,7 +116,7 @@ export function NewJobModal({ onClose }) {
             list="customer-names"
             placeholder="Sarah Khan"
             autoComplete="off"
-            autoFocus
+            autoFocus={!initialCustomer}
           />
           <datalist id="customer-names">
             {names.map((name) => (
@@ -93,7 +126,13 @@ export function NewJobModal({ onClose }) {
         </label>
         <label className="field">
           <span>What are we making?</span>
-          <input className="input" value={what} onChange={(event) => setWhat(event.target.value)} placeholder="T-shirts with logo" />
+          <input
+            className="input"
+            value={what}
+            onChange={(event) => setWhat(event.target.value)}
+            placeholder="T-shirts with logo"
+            autoFocus={Boolean(initialCustomer)}
+          />
         </label>
         <div className="field-row">
           <label className="field">
@@ -115,22 +154,61 @@ export function NewJobModal({ onClose }) {
             <input className="input" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
           </label>
         </div>
-        <label className="field">
+        <div className="field">
           <span>
-            Design file <small>(optional)</small>
+            Design files <small>(optional — any kind, as many as you like, up to 50 MB each)</small>
           </span>
-          <span className="file-pick">
-            <input type="file" accept="image/*,.pdf,.ai,.svg,.eps,.psd" onChange={(event) => setFile(event.target.files?.[0] || null)} />
-            {file ? `📎 ${file.name}` : 'Tap to choose a file'}
-          </span>
-        </label>
+          <button
+            type="button"
+            className="file-pick"
+            style={{ width: '100%' }}
+            onClick={() => fileInput.current?.click()}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              addFiles(event.dataTransfer.files);
+            }}
+          >
+            📎 {files.length ? 'Add more files' : 'Tap to choose files, or drop them here'}
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            hidden
+            onChange={(event) => {
+              addFiles(event.target.files);
+              event.target.value = '';
+            }}
+          />
+          {files.length ? (
+            <ul className="pick-list">
+              {files.map((file, index) => (
+                <li key={`${file.name}-${index}`}>
+                  <span>
+                    {file.name} <small>{sizeWords(file.size)}</small>
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}
+                    disabled={saving}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        <UploadRows rows={uploads.rows} />
         {error ? <p className="error-text">{error}</p> : null}
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={onClose} disabled={saving}>
             Cancel
           </button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : 'Make job'}
+            {saving ? (files.length ? 'Uploading…' : 'Saving…') : 'Make job'}
           </button>
         </div>
       </form>

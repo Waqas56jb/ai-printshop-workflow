@@ -4,7 +4,6 @@ import { supabase, unwrap } from '../../config/supabase.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { emitJobUpdated } from '../../sockets/events.js';
 import * as artworkService from '../artwork/artwork.service.js';
-import { isArtworkFile } from '../artwork/artwork.upload.js';
 
 // The Files explorer is a view over real records:
 //   ""          root      → one folder per customer (with jobs or files) + shop folders + loose files
@@ -307,8 +306,6 @@ export async function upload(pathRef, files, user) {
 
   if (place.job_id) {
     // Inside a job folder: these ARE the job's files — on the job card and the TV.
-    const bad = files.find((file) => !isArtworkFile(file));
-    if (bad) throw new ApiError(400, `${bad.originalname}: job files must be pictures, PDF, AI or SVG`);
     const items = [];
     for (const file of files) {
       const artwork = await artworkService.uploadArtwork(place.job_id, file, user.id);

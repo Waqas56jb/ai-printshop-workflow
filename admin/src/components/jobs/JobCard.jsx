@@ -4,7 +4,10 @@ const MAX_THUMBS = 3;
 
 function Thumbs({ files }) {
   if (!files?.length) return null;
-  const sorted = [...files].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  // Pictures first (they say the most at a glance), newest first within each group.
+  const sorted = [...files].sort(
+    (a, b) => isImageFile(b) - isImageFile(a) || new Date(b.created_at) - new Date(a.created_at)
+  );
   const shown = sorted.slice(0, MAX_THUMBS);
   const extra = sorted.length - shown.length;
   return (

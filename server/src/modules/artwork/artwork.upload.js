@@ -2,33 +2,29 @@ import path from 'node:path';
 import multer from 'multer';
 import { ApiError } from '../../utils/ApiError.js';
 
-const allowedMimes = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  'application/pdf',
-  'application/postscript',
-  'application/illustrator',
-  'application/octet-stream',
+// Print shops get every kind of design file (AI, PSD, EPS, CDR, TIFF, PDF, ZIP…),
+// so any format is accepted except files a browser or computer could run.
+// 50 MB per file is the storage limit of the Supabase project.
+export const MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+const blockedExt = new Set([
+  '.exe', '.msi', '.bat', '.cmd', '.com', '.scr', '.ps1', '.vbs', '.sh', '.jar',
+  '.js', '.mjs', '.html', '.htm', '.xhtml', '.php', '.dll',
 ]);
+const blockedMimes = new Set(['text/html', 'application/x-msdownload', 'application/javascript', 'text/javascript']);
 
-const allowedExt = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.pdf', '.ai']);
-
-// Job files (shown on the job card and the TV): pictures, PDF, AI, SVG.
 export function isArtworkFile(file) {
   const ext = path.extname(file?.originalname || '').toLowerCase();
-  return allowedMimes.has(file?.mimetype) || allowedExt.has(ext);
+  return !blockedExt.has(ext) && !blockedMimes.has(file?.mimetype);
+}
+
+function fileFilter(_req, file, cb) {
+  if (isArtworkFile(file)) return cb(null, true);
+  cb(new ApiError(400, `${file.originalname}: this kind of file can't be uploaded (programs and web pages are blocked)`));
 }
 
 export const artworkUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (isArtworkFile(file)) {
-      return cb(null, true);
-    }
-    cb(new ApiError(400, 'Unsupported file type. Use images, PDF, AI, or SVG.'));
-  },
+  limits: { fileSize: MAX_FILE_BYTES },
+  fileFilter,
 });

@@ -3,8 +3,11 @@ import { getOmiSetupStatus } from '../services/dashboard.service.js';
 
 const ON_WINDOW_MS = 10 * 60 * 1000;
 
+// The OMI device's own last contact (it checks in at least every 30s while it hears
+// speech). Commands typed in the panel don't count as the OMI being on.
 function lastHeard(status) {
-  const times = [status?.last_command_at, ...(status?.devices || []).map((device) => device.last_heard_at)]
+  const times = (status?.devices || [])
+    .map((device) => device.last_heard_at)
     .filter(Boolean)
     .map((value) => new Date(value).getTime())
     .filter(Number.isFinite);

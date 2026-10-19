@@ -39,3 +39,23 @@ export async function downloadLink(id) {
   const { data } = await api.get(`/api/files/${encodeURIComponent(id)}/download`);
   return data.data;
 }
+
+function isPdfFile({ type, name }) {
+  return /pdf/i.test(type || '') || /\.pdf$/i.test(name || '');
+}
+
+// PDFs open in a new tab; every other non-picture file is downloaded with its real name.
+export async function openOrDownload({ id, url, name, type }) {
+  if (url && isPdfFile({ type, name })) {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  const link = id ? await downloadLink(id) : { url };
+  const a = document.createElement('a');
+  a.href = link.url;
+  a.rel = 'noopener';
+  if (!id && name) a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}

@@ -493,3 +493,15 @@ kbd{
   margin-left:auto;width:2.3em;height:2.3em;border-radius:.45em;object-fit:cover;flex:none;
   border:1px solid var(--line);background:var(--card-2);
 }
+/* Design files the TV can't draw (AI, PSD, EPS, CDR, TIFF, ZIP…) */
+.artwork-file{
+  display:flex;flex-direction:column;align-items:center;gap:.5em;text-align:center;
+  padding:2.2em 3em;border-radius:1em;background:var(--card-v2);border:1px solid var(--line);max-width:70vw;
+}
+.artwork-file .ext{
+  font-size:3.4em;font-weight:800;letter-spacing:-.02em;color:#fff;background:var(--magenta);
+  border-radius:.25em;padding:.15em .45em;line-height:1.1;
+}
+.artwork-file b{font-size:1.6em;overflow-wrap:anywhere}
+.artwork-file .size{color:var(--text-2);font-size:1.1em}
+.artwork-file .note{color:var(--text-2);font-size:1.05em;max-width:28em}

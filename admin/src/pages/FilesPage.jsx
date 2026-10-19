@@ -5,7 +5,7 @@ import { Icon } from '../components/Icon.jsx';
 import { Modal } from '../components/Modal.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { useSocket } from '../hooks/useSocket.js';
-import { createFolder, deleteItem, downloadLink, listFiles, renameItem, uploadFile } from '../services/files.service.js';
+import { createFolder, deleteItem, downloadLink, listFiles, openOrDownload, renameItem, uploadFile } from '../services/files.service.js';
 import { errorWords, isImageFile } from '../utils/plain.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -232,8 +232,7 @@ export default function FilesPage() {
     setMenuId(null);
     if (item.type === 'folder') return go(item.id);
     if (isImageFile({ file_type: item.file_type, file_name: item.name }) && item.url) return setViewing(item);
-    if (item.url) window.open(item.url, '_blank', 'noopener');
-    else download(item);
+    openOrDownload(item).catch((err) => toast(errorWords(err, 'Could not open the file.')));
   }
 
   function onAction(kind, item) {
@@ -324,7 +323,6 @@ export default function FilesPage() {
           type="file"
           multiple
           hidden
-          accept={inJob ? 'image/*,.pdf,.ai,.svg' : undefined}
           onChange={(event) => {
             uploadAll(event.target.files);
             event.target.value = '';

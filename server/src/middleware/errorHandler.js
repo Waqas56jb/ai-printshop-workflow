@@ -20,10 +20,14 @@ export function errorHandler(err, _req, res, _next) {
   }
 
   if (err?.name === 'MulterError') {
-    return res.status(400).json({
+    const message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'This file is bigger than 50 MB — please make it smaller or split it'
+        : err.message;
+    return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({
       success: false,
       data: null,
-      message: err.message,
+      message,
     });
   }
 

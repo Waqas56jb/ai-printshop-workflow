@@ -130,9 +130,14 @@ export function historyLines(job, stages = []) {
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 }
 
+// Only formats a browser can draw count as pictures (TIFF, PSD, HEIC… don't).
+const WEB_IMAGE_TYPES = /^image\/(png|jpe?g|pjpeg|gif|webp|svg\+xml|bmp|avif)$/i;
+const WEB_IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+
 export function isImageFile(file) {
-  if (String(file?.file_type || '').toLowerCase().startsWith('image/')) return true;
-  return /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(file?.file_name || file?.file_url || '');
+  const type = String(file?.file_type || '');
+  if (type) return WEB_IMAGE_TYPES.test(type);
+  return WEB_IMAGE_EXT.test(file?.file_name || file?.file_url || '');
 }
 
 export function fileExt(file) {

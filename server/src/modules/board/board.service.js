@@ -86,8 +86,10 @@ function includeJobOnBoard(job, stage, hideHours, art) {
   return new Date(job.completed_at).getTime() >= Date.now() - hideHours * 3600000;
 }
 
+// Only pictures a browser can draw (TIFF/PSD/HEIC can't be shown on the TV).
 function isImageRow(row) {
-  return /^image\//i.test(row.file_type || '') || /\.(png|jpe?g|gif|webp|svg)$/i.test(row.file_name || '');
+  if (row.file_type) return /^image\/(png|jpe?g|pjpeg|gif|webp|svg\+xml|bmp|avif)$/i.test(row.file_type);
+  return /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(row.file_name || '');
 }
 
 function mapArtwork(row) {

@@ -269,12 +269,15 @@ export async function deleteCustomer(id) {
     'Failed to check customer jobs'
   ) || [];
   if (jobs.length) {
-    const active = jobs.filter((job) => job.status === 'active').length;
-    if (active) {
-      throw new ApiError(409, `This customer has ${active} active job${active === 1 ? '' : 's'} and cannot be deleted`);
-    }
-    throw new ApiError(409, 'This customer has jobs and cannot be deleted');
+    const n = jobs.length;
+    throw new ApiError(409, `Delete the ${n} job${n === 1 ? '' : 's'} of this customer first`);
   }
+  // Their own files (Files page) go with them — rows cascade, storage objects don't.
+  const own = unwrap(
+    await supabase.from('shop_files').select('file_path').eq('customer_id', id),
+    'Failed to load customer files'
+  ) || [];
+  if (own.length) await supabase.storage.from('shop-files').remove(own.map((row) => row.file_path));
   unwrap(await supabase.from('customers').delete().eq('id', id), 'Failed to delete customer');
   return { id };
 }

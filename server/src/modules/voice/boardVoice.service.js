@@ -41,6 +41,11 @@ function dueLabel(dueDate) {
   return `Due ${due.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
 }
 
+// Newest file first, the same order the panel shows them.
+function sortedArtworks(job) {
+  return [...(job.artworks || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
 function payloadFromJob(job, stages) {
   const idx = stages.findIndex((stage) => stage.id === job.stage_id);
   const next = idx >= 0 && idx < stages.length - 1 ? stages[idx + 1] : null;
@@ -57,9 +62,11 @@ function payloadFromJob(job, stages) {
     due_label: dueLabel(job.due_date),
     priority: job.priority,
     assigned_initials: initials(job.assignee?.full_name),
-    artworks: (job.artworks || []).map((art) => ({
+    artworks: sortedArtworks(job).map((art) => ({
       url: art.file_url,
       name: art.file_name,
+      type: art.file_type || null,
+      size: art.size_bytes || null,
       is_approved: Boolean(art.is_approved),
     })),
     details: {
@@ -122,7 +129,7 @@ export async function showArtwork(jobId, index = 0) {
   const id = jobId || getFocusedJobId();
   if (!id) return;
   const { job } = await ensureFocus(id);
-  const artworks = job.artworks || [];
+  const artworks = sortedArtworks(job);
   const total = artworks.length;
   const safeIndex = total ? ((index % total) + total) % total : 0;
   updateBoardSession({ artwork_index: safeIndex });
@@ -132,6 +139,8 @@ export async function showArtwork(jobId, index = 0) {
     index: safeIndex,
     url: art?.file_url || null,
     name: art?.file_name || null,
+    type: art?.file_type || null,
+    size: art?.size_bytes || null,
     total,
     is_approved: Boolean(art?.is_approved),
   };

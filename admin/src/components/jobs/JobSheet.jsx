@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { addJobFile, deleteJob, getJob, moveJobStage, updateJob } from '../../services/jobs.service.js';
 import { announceJobsChanged } from '../../hooks/useJobBoard.js';
+import { useUploads } from '../../hooks/useUploads.js';
+import { openOrDownload } from '../../services/files.service.js';
+import { UploadRows } from '../UploadRows.jsx';
 import {
   dueLine,
   errorWords,
@@ -65,11 +68,11 @@ export function JobSheet({ jobId, stages, version, onClose }) {
   const [editingDue, setEditingDue] = useState(false);
   const [dueValue, setDueValue] = useState('');
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [movingTo, setMovingTo] = useState(null);
   const fileInput = useRef(null);
+  const uploads = useUploads();
 
   const load = useCallback(async () => {
     try {
@@ -99,20 +102,15 @@ export function JobSheet({ jobId, stages, version, onClose }) {
     }
   }
 
-  async function onFile(event) {
-    const file = event.target.files?.[0];
+  async function onFiles(event) {
+    const picked = Array.from(event.target.files || []);
     event.target.value = '';
-    if (!file) return;
-    setUploading(true);
-    try {
-      await addJobFile(job.id, file);
-      toast(`File added to ${jobPhrase(job)}`);
+    if (!picked.length) return;
+    const done = await uploads.run(picked, (file, onPct) => addJobFile(job.id, file, onPct));
+    if (done) {
+      toast(`${done} file${done === 1 ? '' : 's'} added to ${jobPhrase(job)}`);
       announceJobsChanged();
       await load();
-    } catch (err) {
-      toast(errorWords(err, 'The file did not upload.'));
-    } finally {
-      setUploading(false);
     }
   }
 
@@ -132,7 +130,7 @@ export function JobSheet({ jobId, stages, version, onClose }) {
 
   function openFile(file) {
     if (isImageFile(file)) setViewing(file);
-    else window.open(file.file_url, '_blank', 'noopener');
+    else openOrDownload({ id: `a:${file.id}`, url: file.file_url, name: file.file_name, type: file.file_type });
   }
 
   if (!job) {
@@ -217,7 +215,8 @@ export function JobSheet({ jobId, stages, version, onClose }) {
         </div>
 
         <div className="sheet-section">
-          <h3>Files</h3>
+          <h3>Files{files.length ? ` (${files.length})` : ''}</h3>
+          <UploadRows rows={uploads.rows} />
           {files.length ? (
             <div className="thumbs">
               {files.map((file) => (
@@ -265,13 +264,13 @@ export function JobSheet({ jobId, stages, version, onClose }) {
           >
             Change due date
           </button>
-          <button type="button" className="btn" onClick={() => fileInput.current?.click()} disabled={uploading}>
-            {uploading ? 'Uploading…' : 'Add file'}
+          <button type="button" className="btn" onClick={() => fileInput.current?.click()} disabled={uploads.busy}>
+            {uploads.busy ? 'Uploading…' : 'Add files'}
           </button>
           <button type="button" className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
             Delete job
           </button>
-          <input ref={fileInput} type="file" hidden accept="image/*,.pdf,.ai,.svg,.eps,.psd" onChange={onFile} />
+          <input ref={fileInput} type="file" hidden multiple onChange={onFiles} />
         </div>
       </Modal>
 

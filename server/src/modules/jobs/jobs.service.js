@@ -362,6 +362,13 @@ export async function completeJob(id, userId) {
 
 export async function deleteJob(id) {
   await getJobRow(id);
+  // The artwork rows cascade with the job; their files in storage have to go too.
+  const files = unwrap(
+    await supabase.from('job_artworks').select('file_path').eq('job_id', id),
+    'Failed to load job files'
+  ) || [];
+  const paths = files.map((row) => row.file_path).filter(Boolean);
+  if (paths.length) await supabase.storage.from('artworks').remove(paths);
   unwrap(await supabase.from('jobs').delete().eq('id', id), 'Failed to delete job');
   emitJobDeleted({ id });
   return { id };
