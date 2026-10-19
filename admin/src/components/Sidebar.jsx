@@ -6,10 +6,12 @@ import { Icon } from './Icon.jsx';
 import { MoreDialog } from './MoreDialog.jsx';
 
 const NAV = [
-  { to: '/', label: 'Jobs', icon: 'jobs', end: true },
+  { to: '/', label: 'Dashboard', icon: 'home', end: true },
+  { to: '/jobs', label: 'Jobs', icon: 'jobs' },
   { to: '/files', label: 'Files', icon: 'folder' },
   { to: '/customers', label: 'Customers', icon: 'customers' },
   { to: '/voice', label: 'Voice', icon: 'voice' },
+  { to: '/team', label: 'Team', icon: 'team', adminOnly: true },
 ];
 
 function heardWords(at, now) {
@@ -40,7 +42,7 @@ export function Sidebar() {
         <b>Print Shop</b>
       </Link>
       <nav className="nav" aria-label="Main">
-        {NAV.map((item) => (
+        {NAV.filter((item) => !item.adminOnly || profile?.role === 'admin').map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => (isActive ? 'on' : undefined)}>
             <Icon name={item.icon} />
             {item.label}

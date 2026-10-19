@@ -1,5 +1,6 @@
 import { supabase, unwrap } from '../../config/supabase.js';
 import { ApiError } from '../../utils/ApiError.js';
+import { forgetUser } from '../../middleware/auth.js';
 import { generateTempPassword } from '../../utils/password.js';
 
 function startOfWeek() {
@@ -35,7 +36,7 @@ export async function listUsers({ lite = false } = {}) {
         .from('profiles')
         .select(
           lite
-            ? 'id, full_name, email, role, is_active, job_title'
+            ? 'id, full_name, email, role, is_active, job_title, last_active_at, created_at'
             : '*'
         )
         .order('created_at', { ascending: true }),
@@ -169,9 +170,35 @@ export async function assignOmi(id, omiUid) {
   );
 }
 
-export async function updateUser(id, payload) {
+// The shop must always keep at least one admin who can sign in.
+async function otherAdminsCount(id) {
+  const rows = unwrap(
+    await supabase.from('profiles').select('id').eq('role', 'admin').eq('is_active', true).neq('id', id),
+    'Failed to check admins'
+  );
+  return rows?.length || 0;
+}
+
+export async function updateUser(id, payload, actor = null) {
   const existing = await getUser(id);
   const next = { ...payload };
+
+  const losingAdmin =
+    existing.role === 'admin' && ((next.role && next.role !== 'admin') || next.is_active === false);
+  if (losingAdmin && actor?.id === id) {
+    throw new ApiError(400, 'You can’t take away your own admin rights — ask another admin');
+  }
+  if (losingAdmin && !(await otherAdminsCount(id))) {
+    throw new ApiError(400, 'The shop needs at least one admin');
+  }
+
+  // The sign-in email lives in Supabase Auth; keep it the same as the profile.
+  if (next.email && next.email !== existing.email && existing.role !== 'worker') {
+    const { error } = await supabase.auth.admin.updateUserById(id, { email: next.email, email_confirm: true });
+    if (error) {
+      throw new ApiError(400, /already|registered|exists/i.test(error.message) ? 'That email is already used by another account' : error.message);
+    }
+  }
 
   if ('omi_uid' in next) {
     await assignOmi(id, next.omi_uid || null);
@@ -184,10 +211,12 @@ export async function updateUser(id, payload) {
     next.invite_status = existing.email ? 'active' : 'active';
   }
 
-  return unwrap(
+  const updated = unwrap(
     await supabase.from('profiles').update(next).eq('id', id).select('*').single(),
     'Failed to update user'
   );
+  forgetUser(id);
+  return updated;
 }
 
 export async function resetPassword(id, password) {
@@ -203,9 +232,16 @@ export async function resetPassword(id, password) {
   return { password: temp };
 }
 
-export async function deleteUser(id) {
-  await getUser(id);
+export async function deleteUser(id, actor = null) {
+  const existing = await getUser(id);
+  if (actor?.id === id) {
+    throw new ApiError(400, 'You can’t delete your own account');
+  }
+  if (existing.role === 'admin' && !(await otherAdminsCount(id))) {
+    throw new ApiError(400, 'The shop needs at least one admin');
+  }
   unwrap(await supabase.from('profiles').delete().eq('id', id), 'Failed to delete profile');
+  forgetUser(id);
   const { error } = await supabase.auth.admin.deleteUser(id);
   if (error && !/not (found|exist)|user not found/i.test(error.message || '')) {
     throw new ApiError(400, error.message);

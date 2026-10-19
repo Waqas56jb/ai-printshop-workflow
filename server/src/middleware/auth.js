@@ -33,6 +33,13 @@ function setCachedProfile(token, user, profile) {
   });
 }
 
+// After an admin edits, demotes or deletes someone, their next request re-reads the profile.
+export function forgetUser(userId) {
+  for (const [key, row] of profileCache) {
+    if (row.profile?.id === userId || row.user?.id === userId) profileCache.delete(key);
+  }
+}
+
 export const authenticate = asyncHandler(async (req, _res, next) => {
   const token = readBearer(req);
   if (!token) {

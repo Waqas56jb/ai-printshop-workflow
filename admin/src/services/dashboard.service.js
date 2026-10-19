@@ -62,3 +62,9 @@ export async function rejectVoice(id) {
   const { data } = await api.patch(`/api/voice/${id}/reject`);
   return data.data;
 }
+
+export async function getOverview() {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const { data } = await api.get('/api/dashboard/overview', { params: { tz } });
+  return data.data;
+}

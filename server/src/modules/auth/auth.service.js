@@ -53,7 +53,11 @@ export async function registerStaff({ email, password, full_name, role, omi_uid,
   });
 
   if (error || !data?.user) {
-    throw new ApiError(400, error?.message || 'Failed to create user');
+    const message = error?.message || 'Failed to create user';
+    throw new ApiError(
+      400,
+      /already|registered|exists/i.test(message) ? 'That email is already used by another account' : message
+    );
   }
 
   const profile = unwrap(

@@ -1,5 +1,18 @@
 // Line icons from the admin-v2 design.
 const PATHS = {
+  home: <path d="M3 11 12 4l9 7M5 10v10h5v-6h4v6h5V10" />,
+  team: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h4a4.5 4.5 0 0 1 4.5 4.5V20M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14a4.5 4.5 0 0 1 3 4.2V20" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11 12 9-9m-4 4 3 3m-6 0 2 2" />
+    </>
+  ),
   jobs: <path d="M4 6h16M4 12h16M4 18h10" />,
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
   customers: (

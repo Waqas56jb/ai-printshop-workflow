@@ -14,7 +14,7 @@ export const stats = asyncHandler(async (_req, res) => {
 });
 
 export const update = asyncHandler(async (req, res) => {
-  const user = await usersService.updateUser(req.params.id, req.body);
+  const user = await usersService.updateUser(req.params.id, req.body, req.user);
   return sendOk(res, user, 'User updated');
 });
 
@@ -24,6 +24,6 @@ export const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export const remove = asyncHandler(async (req, res) => {
-  const result = await usersService.deleteUser(req.params.id);
+  const result = await usersService.deleteUser(req.params.id, req.user);
   return sendOk(res, result, 'User deleted');
 });

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 // Open dialogs, newest last — Escape only closes the one on top.
 const stack = [];
@@ -24,7 +25,9 @@ export function Modal({ title, onClose, wide = false, full = false, children }) 
     };
   }, [id]);
 
-  return (
+  // Rendered at the top of the page, so a dialog opened from the sidebar or a
+  // sticky header is never clipped by it or inherits its colours.
+  return createPortal(
     <div
       className="overlay"
       onMouseDown={(event) => {
@@ -45,6 +48,7 @@ export function Modal({ title, onClose, wide = false, full = false, children }) 
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
